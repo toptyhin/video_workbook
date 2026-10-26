@@ -6,6 +6,7 @@ from pathlib import Path
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 
+from ..db import connect
 from ..deps import get_db
 from ..services import library_service
 from ..services.queue import QueueError
@@ -102,7 +103,7 @@ def scan(payload: dict, request: Request):
     if not target.exists():
         return _error(400, "Путь не найден", "invalid_path")
     if target.is_dir():
-        conn = sqlite3.connect(request.app.state.config.db_path)
+        conn = connect(request.app.state.config.db_path)
         try:
             existing = conn.execute(
                 "SELECT id, path FROM watched_folders WHERE path = ?", (str(target),)
@@ -149,7 +150,7 @@ def cancel(video_id: int, request: Request):
 
 @router.post("/videos/{video_id}/reprocess")
 def reprocess(video_id: int, request: Request):
-    conn = sqlite3.connect(request.app.state.config.db_path)
+    conn = connect(request.app.state.config.db_path)
     try:
         row = conn.execute("SELECT id, status FROM videos WHERE id = ?", (video_id,)).fetchone()
         if row is None:

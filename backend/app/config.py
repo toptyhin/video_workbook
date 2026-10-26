@@ -8,6 +8,9 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
+# дочерние процессы (spawn) должны видеть пакет app
+os.environ.setdefault("PYTHONPATH", str(REPO_ROOT / "backend"))
+
 
 def _env_path(name: str, default: Path) -> Path:
     value = os.environ.get(name)

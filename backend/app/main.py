@@ -14,7 +14,7 @@ from fastapi.staticfiles import StaticFiles
 
 from .config import Config, get_config
 from .db import connect, migrate
-from .routers import events, folders, fs, health, settings, videos
+from .routers import annotations, events, folders, fs, health, search, settings, tags, videos
 from .services.events import EventBus
 from .services.queue import TranscriptionQueue
 from .services.scanner import Scanner
@@ -100,6 +100,9 @@ def create_app(config: Config | None = None) -> FastAPI:
     app.include_router(folders.router)
     app.include_router(fs.router)
     app.include_router(videos.router)
+    app.include_router(tags.router)
+    app.include_router(search.router)
+    app.include_router(annotations.router)
 
     _mount_frontend(app, cfg)
     return app
