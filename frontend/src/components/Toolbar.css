@@ -1,0 +1,47 @@
+.vl-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: var(--vl-toolbar-height);
+  padding: 0 12px;
+  border-bottom: 1px solid var(--vl-border);
+  background: var(--vl-panel);
+  flex: 0 0 auto;
+}
+
+.vl-toolbar__search {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 1 520px;
+  min-width: 180px;
+  margin-left: 8px;
+}
+
+.vl-toolbar__search-input {
+  flex: 1 1 auto;
+  min-width: 120px;
+}
+
+.vl-toolbar__scope {
+  flex: 0 0 auto;
+  max-width: 132px;
+}
+
+.vl-toolbar__spacer {
+  flex: 1 1 auto;
+}
+
+.vl-toolbar__icon-button {
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  font-size: 15px;
+  line-height: 1;
+}
+
+.vl-toolbar__icon-button span {
+  pointer-events: none;
+}

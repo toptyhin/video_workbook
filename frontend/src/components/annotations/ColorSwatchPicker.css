@@ -1,0 +1,40 @@
+.vl-colors {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.vl-colors__swatches {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.vl-colors__swatch {
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border-radius: 50%;
+  border: 1px solid var(--vl-border);
+}
+
+.vl-colors__swatch.is-selected {
+  box-shadow: 0 0 0 2px var(--vl-focus);
+}
+
+.vl-colors__custom input[type='color'] {
+  width: 28px;
+  height: 24px;
+  padding: 0;
+  border: 1px solid var(--vl-border);
+  background: var(--vl-bg-elevated);
+  cursor: pointer;
+}
+
+.vl-colors__hex {
+  width: 90px;
+  font-family: var(--vl-font-mono);
+  font-size: 11px;
+}

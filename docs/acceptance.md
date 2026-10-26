@@ -1,0 +1,53 @@
+# Приёмка VideoLessons
+
+Обновлено: 2026-10-26. Окружение прогона: dev-машина (Gentoo, Python 3.11.16, Node 26.10, ffmpeg 8.1, Docker 29.8).
+
+## Итог локальных проверок
+
+| Проверка | Команда | Результат |
+|---|---|---|
+| Backend lint | `.venv/bin/ruff check backend/app backend/tests` | ✅ All checks passed |
+| Backend tests | `(cd backend && ../.venv/bin/python -m pytest)` | ✅ **45 passed** (M1–M7: skeleton, library, transcription-queue, search, tags, annotations, auth/SSE) |
+| Frontend typecheck | `npm --prefix frontend run typecheck` | ✅ 0 ошибок |
+| Frontend unit/component | `npm --prefix frontend run test` | ✅ **54 passed** (9 файлов) |
+| Production build | `npm --prefix frontend run build` | ✅ `dist/` 273 KB JS + 37 KB CSS |
+| Electron main build | `npm run build:electron` | ✅ `dist-electron/main.js`, `preload.js` |
+| E2E (Playwright, Chromium) | `npx playwright test` | ✅ **5 passed**: библиотека, открытие видео + транскрипция в таймпанели, создание метки через диалог, поиск по меткам с переходом на таймкод, панель «Метки» |
+| Реальная транскрипция | faster-whisper 1.2.1, модель `tiny` INT8, русская речь (espeak-ng) | ✅ lang=ru, сегменты записаны в БД, отображены в UI |
+| Sidecar PyInstaller (host) | `packaging/backend.spec` | ✅ onedir 425 MB, стартует, применяет миграции, печатает `VL_READY` |
+| Sidecar PyInstaller (Ubuntu 22.04 Docker) | `scripts/build-backend.sh docker` | ✅ `backend-dist/vl-backend` 382 MB (собран на glibc 22.04) |
+| Electron sidecar handshake | `electron .` (без GUI) | ✅ main запустил backend, получил `VL_READY`, загрузил SPA; GUI-окно в sandbox агента не отображается (нет доступа к X-авторизации) |
+
+Скриншот: [docs/screens/app.png](screens/app.png) — список «Метки», плеер, таймпанель с сегментом и меткой, таймлайн с маркером.
+
+## Критерии TARGET.md §7
+
+| # | Критерий | Статус | Чем проверено / что осталось |
+|---|---|---|---|
+| 1 | Первый запуск `.deb` на Ubuntu без Python/ffmpeg, окно < 5 с | ⏳ | Нужна чистая VM: `scripts/vm-smoke.sh`. Docker-сборка backend готова; `.deb`/AppImage собираются electron-builder (см. ниже) |
+| 2 | Индексация папки с 3 видео, корректные длительности | ✅ | `test_m2_library.py` (scan/ffprobe/дедуп/список), e2e «библиотека загружается» |
+| 3 | Транскрипция RU 10 мин, задержка прогресса | ⚠️ частично | Пайплайн проверен на коротком клипе (tiny). Нужен прогон 10-мин файла моделью `small` на целевом CPU: время/RTF и задержка прогресса |
+| 4 | Поиск слова → файл и таймкод, клик → seek | ✅ | `test_m4_search.py`, e2e «поиск по меткам» |
+| 4a | **Поиск по меткам** (требование пользователя) | ✅ | `test_m7_annotations.py::test_search_annotations` (FTS label/note, tag:, цвет, scope), e2e создание+поиск+seek |
+| 5 | Клик по сегменту → seek, подсветка, автопрокрутка | ✅ (UI), автопрокрутка — ручная проверка | e2e открытие видео; `TimingPanel.test.tsx` (scrollIntoView block:'nearest') |
+| 6 | Иерархия тегов, фильтр | ✅ API / ⏳ e2e фильтра | `test_m6_tags.py` (дерево, глубина, циклы, фильтры, экспорт/импорт); UI TagTree/FileList-фильтр покрыты unit-тестами |
+| 7 | Метка 00:30–01:15 видна и кликабельна | ✅ | e2e: метка 00:01–00:02 создана через диалог, маркер отрисован, панель показывает |
+| 8 | Перезапуск восстанавливает состояние | ⚠️ частично | `localStorage` (тема/ширины/таб) + БД; нужен ручной/VM-прогон |
+| 9 | Закрытие во время транскрипции ≤ 5 с, БД цела | ⏳ | Graceful shutdown sidecar реализован (`stop()` + SIGTERM); нужен прогон на VM |
+| 10 | Нет исходящих запросов | ⏳ | Проверка `ss -tp`/`tcpdump` на чистой VM |
+
+## Ограничения текущего прогона
+
+- GUI Electron в sandbox агента недоступен (X-авторизация вне sandbox), поэтому UI проверен в headless Chromium против production-сборки, которую отдаёт backend; Electron main проверен по логу (sidecar handshake).
+- В `resources/models` лежит `tiny` (75 MB) для dev/e2e; релизный пакет должен содержать `small` INT8 (`scripts/fetch-model.sh small`, ~484 MB) — в артефакт не включён из-за размера.
+- `resources/ffmpeg` заполняется `scripts/fetch-ffmpeg.sh` (статический бинарник); для LGPL-сборки задать `FFMPEG_URL`.
+- Реальная транскрипция проверена на синтезированной речи (espeak-ng) — качество текста ограничено моделью `tiny`; для `small` точность выше.
+
+## Сквозные сценарии (ручные, чистая VM)
+
+1. Урок 10 мин (модель `small`) → метка 00:30–01:15 «важный пример» + тег → видна на таймлайне и в панели.
+2. Поиск по слову из названия метки → строка «метка» → клик → плеер на 00:30, маркер подсвечен.
+3. `tag:важное` → метки с тегом и дочерними.
+4. Перетаскивание границы метки → сохранено, переход на новый `start`.
+5. Удаление метки → `Ctrl+Z` возвращает её с тегами.
+6. Перезапуск → метки, теги, ширины панелей восстановлены.

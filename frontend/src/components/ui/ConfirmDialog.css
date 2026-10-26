@@ -1,0 +1,43 @@
+.vl-confirm-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2200;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(15, 23, 42, 0.45);
+}
+
+.vl-confirm {
+  width: min(420px, 100%);
+  padding: 18px 20px;
+  border: 1px solid var(--vl-border);
+  border-radius: var(--vl-radius);
+  background: var(--vl-bg-elevated);
+  box-shadow: var(--vl-shadow);
+}
+
+.vl-confirm__title {
+  margin: 0 0 8px;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.vl-confirm__message {
+  margin: 0 0 16px;
+  color: var(--vl-text-muted);
+  line-height: 1.45;
+  white-space: pre-line;
+}
+
+.vl-confirm__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.vl-confirm__confirm--danger {
+  background: var(--vl-danger);
+  border-color: var(--vl-danger);
+  color: #fff;
+}

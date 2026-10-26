@@ -1,0 +1,86 @@
+.vl-app {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  background: var(--vl-bg);
+}
+
+.vl-app__body {
+  display: flex;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.vl-app__sidebar {
+  flex: 0 0 auto;
+  min-width: 200px;
+  max-width: 520px;
+  border-right: 1px solid var(--vl-border);
+  background: var(--vl-panel);
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.vl-app__main {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+}
+
+.vl-app__viewbar {
+  display: flex;
+  gap: 4px;
+  padding: 6px 10px 0;
+  border-bottom: 1px solid var(--vl-border);
+  background: var(--vl-bg);
+}
+
+.vl-app__viewbar button {
+  border: 1px solid transparent;
+  border-bottom: none;
+  border-radius: var(--vl-radius-sm) var(--vl-radius-sm) 0 0;
+  background: transparent;
+  padding: 6px 14px;
+  color: var(--vl-text-muted);
+}
+
+.vl-app__viewbar button.is-active {
+  background: var(--vl-bg-elevated);
+  border-color: var(--vl-border);
+  color: var(--vl-text);
+  font-weight: 600;
+}
+
+.vl-app__list {
+  flex: 1 1 auto;
+  min-height: 120px;
+  overflow: auto;
+  background: var(--vl-bg-elevated);
+}
+
+.vl-app__preview {
+  flex: 0 0 auto;
+  display: flex;
+  min-height: 0;
+  height: 380px;
+  border-top: 1px solid var(--vl-border);
+  background: var(--vl-bg-sunken);
+}
+
+.vl-app__player {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+@media (max-height: 800px) {
+  .vl-app__preview {
+    height: 320px;
+  }
+}

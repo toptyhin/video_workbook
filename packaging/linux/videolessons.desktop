@@ -1,0 +1,8 @@
+[Desktop Entry]
+Name=VideoLessons
+Comment=Видеоуроки: локальная транскрипция, поиск, теги и метки
+Exec=videolessons %U
+Terminal=false
+Type=Application
+Categories=AudioVideo;Video;Education;
+MimeType=video/mp4;video/x-matroska;video/quicktime;video/webm;

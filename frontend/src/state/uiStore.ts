@@ -4,6 +4,7 @@ import { readStorage, writeStorage } from '../lib/storage';
 
 export type Theme = 'light' | 'dark' | 'system';
 export type SidebarTab = 'files' | 'tags';
+export type CenterView = 'files' | 'annotations';
 export type ToastKind = 'info' | 'success' | 'warn' | 'error';
 
 export interface Toast {
@@ -16,6 +17,7 @@ export interface Toast {
 interface UIState {
   theme: Theme;
   sidebarTab: SidebarTab;
+  centerView: CenterView;
   sidebarWidth: number;
   timingsWidth: number;
   timingsCollapsed: boolean;
@@ -26,6 +28,7 @@ interface UIState {
   backendReady: boolean;
   setTheme: (theme: Theme) => void;
   setSidebarTab: (tab: SidebarTab) => void;
+  setCenterView: (view: CenterView) => void;
   setSidebarWidth: (width: number) => void;
   setTimingsWidth: (width: number) => void;
   toggleTimings: () => void;
@@ -42,6 +45,7 @@ let toastSeq = 0;
 export const useUIStore = create<UIState>((set, get) => ({
   theme: readStorage<Theme>(STORAGE_KEYS.theme, 'system'),
   sidebarTab: readStorage<SidebarTab>(STORAGE_KEYS.sidebarTab, 'files'),
+  centerView: 'files',
   sidebarWidth: readStorage<number>(STORAGE_KEYS.sidebarWidth, 260),
   timingsWidth: readStorage<number>(STORAGE_KEYS.timingsWidth, 320),
   timingsCollapsed: readStorage<boolean>(STORAGE_KEYS.timingsCollapsed, false),
@@ -59,6 +63,7 @@ export const useUIStore = create<UIState>((set, get) => ({
     writeStorage(STORAGE_KEYS.sidebarTab, sidebarTab);
     set({ sidebarTab });
   },
+  setCenterView: (centerView) => set({ centerView }),
   setSidebarWidth: (sidebarWidth) => {
     const width = Math.min(Math.max(sidebarWidth, 200), 520);
     writeStorage(STORAGE_KEYS.sidebarWidth, width);

@@ -1,0 +1,15 @@
+.venv
+node_modules
+frontend/node_modules
+.tmp
+.cache
+.npm-cache
+.npm-logs
+dist
+dist-electron
+backend/dist
+backend-dist
+resources/models
+resources/ffmpeg
+docs/screens
+*.log

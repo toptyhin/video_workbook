@@ -11,9 +11,11 @@
     "dev": "bash scripts/dev.sh",
     "test": "bash scripts/test.sh",
     "test:frontend": "npm --prefix frontend run test",
-    "typecheck": "npm --prefix frontend run typecheck"
+    "typecheck": "npm --prefix frontend run typecheck",
+    "e2e": "playwright test"
   },
   "devDependencies": {
+    "@playwright/test": "^1.49.0",
     "electron": "^31.7.7",
     "electron-builder": "^25.1.8",
     "esbuild": "^0.24.2",

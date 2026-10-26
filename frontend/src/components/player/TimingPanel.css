@@ -1,0 +1,173 @@
+.vl-timing-panel {
+  position: relative;
+  display: flex;
+  flex-direction: row;
+  flex: 0 0 auto;
+  min-width: 0;
+  background: var(--vl-panel);
+  border-left: 1px solid var(--vl-border);
+  overflow: hidden;
+}
+
+.vl-timing-panel.is-collapsed {
+  justify-content: center;
+}
+
+.vl-timing-panel__resizer {
+  position: absolute;
+  left: -3px;
+  top: 0;
+  bottom: 0;
+  width: 7px;
+  cursor: col-resize;
+  z-index: 5;
+  outline: none;
+}
+
+.vl-timing-panel__resizer:hover,
+.vl-timing-panel__resizer.is-dragging {
+  background: var(--vl-accent-soft);
+}
+
+.vl-timing-panel__resizer:focus-visible {
+  outline: 2px solid var(--vl-focus);
+  outline-offset: -2px;
+}
+
+.vl-timing-panel__inner {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.vl-timing-panel__header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--vl-border);
+  min-height: 38px;
+}
+
+.vl-timing-panel.is-collapsed .vl-timing-panel__header {
+  border-bottom: none;
+  padding: 6px 2px;
+  justify-content: center;
+}
+
+.vl-timing-panel__collapse {
+  min-width: 24px;
+  padding: 3px 5px;
+  line-height: 1;
+}
+
+.vl-timing-panel__title {
+  flex: 1 1 auto;
+  margin: 0;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--vl-text-muted);
+}
+
+.vl-timing-panel__tools {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--vl-border);
+}
+
+.vl-timing-panel__tools button {
+  padding: 3px 7px;
+  font-size: 11px;
+}
+
+.vl-timing-panel__tools button.is-active {
+  background: var(--vl-accent-soft);
+  border-color: var(--vl-accent);
+}
+
+.vl-timing-panel__tools-spacer {
+  flex: 1 1 auto;
+}
+
+.vl-timing-panel__bulk {
+  display: flex;
+  gap: 6px;
+  padding: 6px 8px;
+  background: var(--vl-accent-soft);
+  border-bottom: 1px solid var(--vl-border);
+}
+
+.vl-timing-panel__body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.vl-timing-panel__rows {
+  display: flex;
+  flex-direction: column;
+  padding: 2px 0 12px;
+}
+
+.vl-timing-panel__state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  height: 100%;
+  min-height: 160px;
+  padding: 16px;
+  text-align: center;
+  color: var(--vl-text-muted);
+}
+
+.vl-timing-panel__state-text {
+  margin: 0;
+  max-width: 260px;
+}
+
+.vl-timing-panel__progress {
+  width: 80%;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--vl-bg-sunken);
+  overflow: hidden;
+}
+
+.vl-timing-panel__progress-bar {
+  height: 100%;
+  background: var(--vl-accent);
+  transition: width 200ms ease;
+}
+
+.vl-timing-panel__skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+}
+
+.vl-timing-panel__skeleton-row {
+  height: 26px;
+  border-radius: var(--vl-radius-sm);
+  background: var(--vl-bg-sunken);
+  animation: vl-timing-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes vl-timing-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.55;
+  }
+}

@@ -1,0 +1,11 @@
+.vl-tag-node {
+  outline-offset: -2px;
+}
+
+.vl-tag-node:focus-visible {
+  outline: 2px solid var(--vl-focus);
+}
+
+.vl-tag-node .vl-tree-row__label {
+  font-size: 12px;
+}

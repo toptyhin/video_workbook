@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from tests.helpers import add_segment, add_tag, add_video
+from tests.helpers import add_segment, add_video
 
 
 def test_tags_crud_and_tree(client):

@@ -1,0 +1,42 @@
+.vl-segment-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 6px 10px 6px 8px;
+  border-left: 3px solid transparent;
+  cursor: pointer;
+  outline: none;
+}
+
+.vl-segment-row:hover {
+  background: var(--vl-hover);
+}
+
+.vl-segment-row.is-active {
+  background: var(--vl-accent-soft);
+  border-left-color: var(--vl-accent);
+}
+
+.vl-segment-row.is-selected {
+  background: var(--vl-selected);
+}
+
+.vl-segment-row:focus-visible {
+  outline: 2px solid var(--vl-focus);
+  outline-offset: -2px;
+}
+
+.vl-segment-row__time {
+  flex: 0 0 auto;
+  font-family: var(--vl-font-mono);
+  font-size: 11px;
+  color: var(--vl-text-muted);
+}
+
+.vl-segment-row__text {
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  line-height: 1.35;
+}

@@ -18,3 +18,11 @@ e2e/playwright-report/
 .npm-cache/
 .npm-logs/
 .cache/
+backend-dist/
+resources/ffmpeg/ffmpeg
+resources/ffmpeg/ffprobe
+resources/ffmpeg/LICENSE*
+resources/ffmpeg/GPLv3.txt
+resources/SOURCE-OFFER.md
+.docker/
+e2e/trace.zip

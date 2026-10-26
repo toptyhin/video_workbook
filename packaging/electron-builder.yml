@@ -1,0 +1,46 @@
+appId: local.videolessons
+productName: VideoLessons
+copyright: VideoLessons
+directories:
+  output: dist
+  buildResources: build
+files:
+  - dist-electron/**
+  - package.json
+  - "!**/*.map"
+asar: true
+extraResources:
+  - from: backend-dist/vl-backend
+    to: backend/vl-backend
+  - from: frontend/dist
+    to: frontend/dist
+  - from: resources/ffmpeg
+    to: ffmpeg
+  - from: resources/models
+    to: models
+  - from: resources/THIRD-PARTY-NOTICES.md
+    to: THIRD-PARTY-NOTICES.md
+linux:
+  target:
+    - deb
+    - AppImage
+  category: AudioVideo
+  icon: build/icon.png
+  artifactName: VideoLessons-${version}-${arch}.${ext}
+deb:
+  packageCategory: video
+  priority: optional
+  afterInstall: packaging/linux/after-install.tpl
+  depends:
+    - libgtk-3-0
+    - libnotify4
+    - libnss3
+    - libxss1
+    - libxtst6
+    - xdg-utils
+    - libatspi2.0-0
+    - libdrm2
+    - libgbm1
+    - libasound2
+appImage:
+  artifactName: VideoLessons-${version}.${ext}

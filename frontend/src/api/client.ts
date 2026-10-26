@@ -16,7 +16,6 @@ import type {
   SettingsValues,
   TagNode,
   TagTreeResponse,
-  Video,
   VideoListResponse,
   VideoQuery,
 } from './types';

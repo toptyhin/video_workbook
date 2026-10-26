@@ -1,0 +1,72 @@
+.vl-context-menu {
+  position: fixed;
+  z-index: 2100;
+  width: 240px;
+}
+
+.vl-menu {
+  display: flex;
+  flex-direction: column;
+  padding: 4px;
+  border: 1px solid var(--vl-border);
+  border-radius: var(--vl-radius-sm);
+  background: var(--vl-bg-elevated);
+  box-shadow: var(--vl-shadow);
+  max-height: 60vh;
+  overflow-y: auto;
+}
+
+.vl-menu__entry {
+  position: relative;
+}
+
+.vl-menu__entry--separated {
+  margin-top: 4px;
+  padding-top: 4px;
+  border-top: 1px solid var(--vl-border);
+}
+
+.vl-menu__item {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 5px 8px;
+  border: 0;
+  border-radius: var(--vl-radius-sm);
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.vl-menu__item:hover:not(:disabled),
+.vl-menu__item:focus-visible {
+  background: var(--vl-hover);
+}
+
+.vl-menu__item--danger {
+  color: var(--vl-danger);
+}
+
+.vl-menu__label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.vl-menu__chevron {
+  color: var(--vl-text-muted);
+}
+
+.vl-menu__submenu {
+  position: absolute;
+  top: -4px;
+  left: calc(100% - 2px);
+  min-width: 220px;
+}
+
+.vl-menu__submenu .vl-menu {
+  max-height: 50vh;
+}

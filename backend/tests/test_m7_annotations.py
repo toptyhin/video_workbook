@@ -137,7 +137,7 @@ def test_annotation_export_import(client, config):
     assert len(exported["annotations"]) == 2
     assert exported["annotations"][0]["tags"] == ["важное"]
 
-    for item in exported["annotations"]:
+    for _ in exported["annotations"]:
         annotation_id = client.get("/api/annotations", params={"video_id": video_id}).json()["items"][0]["id"]
         client.delete(f"/api/annotations/{annotation_id}")
     assert client.get("/api/annotations", params={"video_id": video_id}).json()["total"] == 0

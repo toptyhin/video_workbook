@@ -1,0 +1,23 @@
+# Сборка релиза VideoLessons: единственная точка с сетью — этот образ.
+FROM ubuntu:22.04
+
+ENV DEBIAN_FRONTEND=noninteractive \
+    PIP_NO_CACHE_DIR=1 \
+    PYTHONDONTWRITEBYTECODE=1
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    python3.11 python3.11-venv python3.11-dev \
+    build-essential curl ca-certificates git \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN python3.11 -m venv /opt/venv && /opt/venv/bin/pip install --upgrade pip
+
+WORKDIR /build
+COPY backend/requirements.txt backend/requirements-ml.txt backend/
+RUN /opt/venv/bin/pip install -r backend/requirements.txt -r backend/requirements-ml.txt pyinstaller
+
+CMD ["bash", "-lc", "\
+  cd backend && /opt/venv/bin/pyinstaller --clean --noconfirm ../packaging/backend.spec && \
+  cd /build && mkdir -p backend-dist && rm -rf backend-dist/vl-backend && \
+  cp -r backend/dist/vl-backend backend-dist/ && \
+  echo backend-dist-ready"]

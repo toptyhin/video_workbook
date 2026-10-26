@@ -1,0 +1,28 @@
+.vl-spinner {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--vl-text-muted);
+}
+
+.vl-spinner__circle {
+  display: inline-block;
+  border: 2px solid var(--vl-border);
+  border-top-color: var(--vl-accent);
+  border-radius: 50%;
+  animation: vl-spin 0.7s linear infinite;
+}
+
+@keyframes vl-spin {
+  to { transform: rotate(360deg); }
+}
+
+.vl-spinner__label {
+  font-size: 12px;
+}
+
+.vl-spinner-block {
+  display: grid;
+  place-items: center;
+  padding: 24px;
+}

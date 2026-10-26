@@ -12,12 +12,22 @@ const dataDir =
   process.env.VL_DATA_DIR ??
   path.join(process.env.XDG_DATA_HOME ?? path.join(os.homedir(), '.local', 'share'), 'VideoLessons');
 const logsDir = path.join(dataDir, 'logs');
-const resourcesDir = isPackaged ? process.resourcesPath : path.join(repoRoot, 'resources');
+const resourcesDir = process.env.VL_RESOURCES_DIR
+  ? path.resolve(process.env.VL_RESOURCES_DIR)
+  : isPackaged
+    ? process.resourcesPath
+    : path.join(repoRoot, 'resources');
+const packagedApp = isPackaged || process.env.VL_PACKAGED === '1';
+
+// userData не должен зависеть от прав на ~/.config (и от чужого экземпляра)
+if (process.env.VL_DATA_DIR) {
+  app.setPath('userData', path.join(dataDir, 'electron'));
+}
 
 ensureDir(logsDir);
 ensureDir(dataDir);
 const logger = new Logger(logsDir);
-logger.info(`VideoLessons starting packaged=${isPackaged} dataDir=${dataDir}`);
+logger.info(`VideoLessons starting packaged=${packagedApp} dataDir=${dataDir}`);
 
 let mainWindow: BrowserWindow | null = null;
 let backend: BackendManager | null = null;
@@ -78,6 +88,20 @@ function createWindow(baseUrl: string): void {
     mainWindow?.show();
     logger.info(`startup.window_visible elapsedMs=${Date.now() - startedAt}`);
   });
+  const capturePath = process.env.VL_CAPTURE_PATH;
+  if (capturePath) {
+    mainWindow.webContents.once('did-finish-load', () => {
+      setTimeout(() => {
+        void mainWindow?.webContents
+          .capturePage()
+          .then((image) => {
+            fs.writeFileSync(capturePath, image.toPNG());
+            logger.info(`screenshot saved: ${capturePath}`);
+          })
+          .finally(() => app.quit());
+      }, 1500);
+    });
+  }
   mainWindow.webContents.on('did-fail-load', (_event, code, description) => {
     logger.error(`Failed to load ${target}: ${code} ${description}`);
   });
@@ -111,7 +135,7 @@ app.whenReady().then(async () => {
   registerIpc();
 
   backend = new BackendManager({
-    isPackaged,
+    isPackaged: packagedApp,
     resourcesDir,
     dataDir,
     repoRoot,
@@ -214,4 +238,3 @@ app.on('before-quit', (event) => {
 
 process.on('SIGTERM', () => app.quit());
 process.on('SIGINT', () => app.quit());
-void fs;

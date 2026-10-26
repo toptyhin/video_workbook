@@ -1,0 +1,49 @@
+.vl-controls {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  background: var(--vl-bg-elevated);
+  border-top: 1px solid var(--vl-border);
+}
+
+.vl-controls__button {
+  min-width: 30px;
+  padding: 4px 8px;
+  line-height: 1;
+}
+
+.vl-controls__button--play {
+  min-width: 38px;
+  font-size: 14px;
+}
+
+.vl-controls__time {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+  margin-left: 6px;
+  font-family: var(--vl-font-mono);
+  font-size: var(--vl-font-time);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.vl-controls__time-divider,
+.vl-controls__time-total {
+  color: var(--vl-text-muted);
+  font-size: 14px;
+}
+
+.vl-controls__spacer {
+  flex: 1 1 auto;
+}
+
+.vl-controls__volume {
+  width: 90px;
+  accent-color: var(--vl-accent);
+}
+
+.vl-controls__seek-end {
+  padding: 4px 8px;
+}

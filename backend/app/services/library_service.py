@@ -112,7 +112,20 @@ def list_videos(
         f"{base} ORDER BY {order} {direction_sql}, v.id DESC LIMIT ? OFFSET ?",
         [*params, limit, offset],
     ).fetchall()
-    return [_row_to_video(row) for row in rows], int(total)
+    items = [_row_to_video(row) for row in rows]
+    if items:
+        ids = [item["id"] for item in items]
+        placeholders = ",".join("?" for _ in ids)
+        tag_map: dict[int, list[int]] = {video_id: [] for video_id in ids}
+        for tag_row in conn.execute(
+            f"SELECT video_id, tag_id FROM video_tags WHERE video_id IN ({placeholders}) "
+            "ORDER BY tag_id",
+            ids,
+        ):
+            tag_map[int(tag_row["video_id"])].append(int(tag_row["tag_id"]))
+        for item in items:
+            item["tag_ids"] = tag_map.get(int(item["id"]), [])
+    return items, int(total)
 
 
 def get_video(conn: sqlite3.Connection, video_id: int) -> sqlite3.Row | None:

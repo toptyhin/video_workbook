@@ -1,0 +1,63 @@
+.vl-tag-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+}
+
+.vl-tag-picker__search {
+  width: 100%;
+}
+
+.vl-tag-picker__list {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  max-height: 150px;
+  overflow-y: auto;
+  padding: 4px;
+  border: 1px solid var(--vl-border);
+  border-radius: var(--vl-radius-sm);
+  background: var(--vl-bg-elevated);
+}
+
+.vl-tag-picker__item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 6px;
+  border-radius: var(--vl-radius-sm);
+  cursor: pointer;
+}
+
+.vl-tag-picker__item:hover {
+  background: var(--vl-hover);
+}
+
+.vl-tag-picker__item input[type='checkbox'] {
+  accent-color: var(--vl-accent);
+}
+
+.vl-tag-picker__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex: 0 0 auto;
+}
+
+.vl-tag-picker__name {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.vl-tag-picker__hint {
+  padding: 4px;
+  color: var(--vl-text-muted);
+  font-size: 11px;
+}
+
+.vl-tag-picker__retry {
+  align-self: flex-start;
+  font-size: 11px;
+}

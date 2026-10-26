@@ -1,0 +1,33 @@
+.vl-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 32px 24px;
+  text-align: center;
+  color: var(--vl-text-muted);
+}
+
+.vl-empty__icon {
+  font-size: 28px;
+  line-height: 1;
+  opacity: 0.75;
+}
+
+.vl-empty__title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--vl-text);
+}
+
+.vl-empty__description {
+  margin: 0;
+  max-width: 420px;
+  line-height: 1.45;
+}
+
+.vl-empty__action {
+  margin-top: 6px;
+}
