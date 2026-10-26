@@ -3,6 +3,8 @@
 Локальное десктопное приложение для видеоуроков: индексация папок, **локальная CPU-транскрипция**
 (faster-whisper), полнотекстовый поиск, синхронизированный плеер с панелью таймингов,
 иерархические теги и **пользовательские метки на фрагменты видео с поиском по ним**.
+HEVC/10-bit MKV автоматически конвертируются для просмотра (прогресс + кэш), высота панели
+предпросмотра изменяется перетаскиванием.
 
 План и контракты: [PLAN.md](PLAN.md), [plans/](plans/). Спека: [TARGET.md](TARGET.md).
 Скриншот: [docs/screens/app.png](docs/screens/app.png).
@@ -86,5 +88,5 @@ bash scripts/make-release.sh
 
 ## Статус
 
-M1–M7 реализованы и покрыты тестами; M8 — backend собирается PyInstaller/Docker, `.deb` собран (352 MB, `dist/VideoLessons-0.1.0-amd64.deb`), AppImage требует mksquashfs/appimagetool;
+M1–M7 реализованы и покрыты тестами; добавлены автопревью HEVC/MKV (transcode/remux с кэшем) и изменяемая высота панели предпросмотра; M8 — backend собирается PyInstaller/Docker, `.deb` собирается `scripts/build-deb.sh` (352 MB), AppImage требует mksquashfs/appimagetool;
 M9 — темы/настройки/клавиши/уведомления в UI. Открытые пункты приёмки (чистая VM, 10-мин прогон `small`, offline-проверка) — в `docs/acceptance.md`.

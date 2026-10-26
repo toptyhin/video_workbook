@@ -73,3 +73,8 @@ def clear_model_cache(request: Request) -> dict:
             elif file.is_dir():
                 file.rmdir()
     return {"removed_bytes": removed_bytes, "removed_files": removed_files}
+
+
+@router.post("/maintenance/clear-preview-cache")
+def clear_preview_cache(request: Request) -> dict:
+    return request.app.state.preview.clear_cache()

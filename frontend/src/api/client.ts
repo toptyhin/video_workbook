@@ -12,6 +12,7 @@ import type {
   ScanResponse,
   SearchParams,
   SearchResponse,
+  PlaybackInfo,
   SegmentListResponse,
   SettingsValues,
   TagNode,
@@ -96,7 +97,7 @@ async function request<T>(
   return data as T;
 }
 
-export function mediaUrl(videoId: number, kind: 'stream' | 'thumb', extra?: Record<string, unknown>): string {
+export function mediaUrl(videoId: number, kind: 'stream' | 'thumb' | 'preview', extra?: Record<string, unknown>): string {
   const params = new URLSearchParams({ token: cachedBackend?.token ?? '' });
   if (extra) {
     for (const [key, value] of Object.entries(extra)) {
@@ -143,6 +144,13 @@ export const api = {
   cancelVideo: (id: number) => request<{ id: number; status: string }>(`/api/videos/${id}/cancel`, { method: 'POST' }),
   queue: () => request<QueueState>('/api/queue'),
   segments: (videoId: number) => request<SegmentListResponse>(`/api/videos/${videoId}/segments`),
+  playback: (videoId: number) => request<PlaybackInfo>(`/api/videos/${videoId}/playback`),
+  preparePreview: (videoId: number) =>
+    request<PlaybackInfo>(`/api/videos/${videoId}/prepare-preview`, { method: 'POST' }),
+  clearPreviewCache: () =>
+    request<{ removed_bytes: number; removed_files: number }>('/api/maintenance/clear-preview-cache', {
+      method: 'POST',
+    }),
 
   search: (params: SearchParams, signal?: AbortSignal) =>
     request<SearchResponse>('/api/search', {

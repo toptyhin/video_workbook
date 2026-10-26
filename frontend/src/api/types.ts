@@ -57,6 +57,25 @@ export interface FsListResponse {
   entries: FsEntry[];
 }
 
+export type PlaybackMode = 'direct' | 'remux' | 'transcode' | 'unsupported';
+export type PlaybackState = 'direct' | 'idle' | 'queued' | 'preparing' | 'ready' | 'error';
+
+export interface PlaybackInfo {
+  video_id: number;
+  mode: PlaybackMode;
+  state: PlaybackState;
+  progress: number;
+  error: string | null;
+  ready?: boolean;
+  video_codec: string | null;
+  audio_codec: string | null;
+  pix_fmt: string | null;
+  width: number | null;
+  height: number | null;
+  audio_channels: number | null;
+  detail: string | null;
+}
+
 export interface Segment {
   id: number;
   video_id: number;

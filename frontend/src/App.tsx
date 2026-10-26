@@ -28,6 +28,8 @@ export function App() {
   const centerView = useUIStore((state) => state.centerView);
   const setCenterView = useUIStore((state) => state.setCenterView);
   const sidebarWidth = useUIStore((state) => state.sidebarWidth);
+  const previewHeight = useUIStore((state) => state.previewHeight);
+  const setPreviewHeight = useUIStore((state) => state.setPreviewHeight);
   const backendReady = useUIStore((state) => state.backendReady);
 
   const videos = useLibraryStore((state) => state.videos);
@@ -51,6 +53,62 @@ export function App() {
       bumpSidebar();
     }, SSE_REFRESH_MS);
   }, [bumpSidebar]);
+
+  const splitterDrag = useRef<{ startY: number; startHeight: number } | null>(null);
+
+  const handleSplitterPointerDown = useCallback(
+    (event: React.PointerEvent<HTMLDivElement>) => {
+      event.preventDefault();
+      splitterDrag.current = { startY: event.clientY, startHeight: previewHeight };
+      event.currentTarget.setPointerCapture(event.pointerId);
+    },
+    [previewHeight],
+  );
+
+  const handleSplitterPointerMove = useCallback(
+    (event: React.PointerEvent<HTMLDivElement>) => {
+      const drag = splitterDrag.current;
+      if (!drag) return;
+      setPreviewHeight(drag.startHeight - (event.clientY - drag.startY));
+    },
+    [setPreviewHeight],
+  );
+
+  const handleSplitterPointerUp = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
+    splitterDrag.current = null;
+    try {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    } catch {
+      /* pointer capture уже снят */
+    }
+  }, []);
+
+  const handleSplitterKeyDown = useCallback(
+    (event: React.KeyboardEvent<HTMLDivElement>) => {
+      const step = event.shiftKey ? 60 : 20;
+      if (event.key === 'ArrowUp') {
+        event.preventDefault();
+        setPreviewHeight(previewHeight + step);
+      } else if (event.key === 'ArrowDown') {
+        event.preventDefault();
+        setPreviewHeight(previewHeight - step);
+      } else if (event.key === 'Home') {
+        event.preventDefault();
+        setPreviewHeight(200);
+      } else if (event.key === 'End') {
+        event.preventDefault();
+        setPreviewHeight(window.innerHeight - 260);
+      }
+    },
+    [previewHeight, setPreviewHeight],
+  );
+
+  // Не даём панели «уехать» за пределы окна при ресайзе
+  useEffect(() => {
+    const onResize = (): void => setPreviewHeight(useUIStore.getState().previewHeight);
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, [setPreviewHeight]);
 
   const openVideo = useCallback((videoId: number, ms?: number) => {
     useUIStore.getState().selectVideo(videoId);
@@ -205,7 +263,27 @@ export function App() {
               <AnnotationList onOpen={openAnnotation} />
             )}
           </div>
-          <section className="vl-app__preview" aria-label={t('player.noVideo')}>
+          <div
+            className="vl-app__splitter"
+            role="separator"
+            aria-orientation="horizontal"
+            aria-label={t('preview.resize')}
+            aria-valuenow={previewHeight}
+            aria-valuemin={200}
+            aria-valuemax={700}
+            tabIndex={0}
+            onPointerDown={handleSplitterPointerDown}
+            onPointerMove={handleSplitterPointerMove}
+            onPointerUp={handleSplitterPointerUp}
+            onPointerCancel={handleSplitterPointerUp}
+            onKeyDown={handleSplitterKeyDown}
+            title={t('preview.resize')}
+          />
+          <section
+            className="vl-app__preview"
+            style={{ height: previewHeight }}
+            aria-label={t('player.noVideo')}
+          >
             <div className="vl-app__player">
               <VideoPlayer
                 videoId={selectedVideoId}

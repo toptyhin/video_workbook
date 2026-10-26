@@ -182,16 +182,8 @@ def segments(video_id: int, conn: sqlite3.Connection = Depends(get_db)):
     return library_service.list_segments(conn, video_id)
 
 
-@router.get("/videos/{video_id}/stream")
-def stream(video_id: int, request: Request, conn: sqlite3.Connection = Depends(get_db)):
-    row = library_service.get_video(conn, video_id)
-    if row is None:
-        return _error(404, "Видео не найдено", "not_found")
-    path = Path(row["path"])
-    if not path.exists():
-        return _error(404, "Файл не найден на диске", "file_missing")
+def _range_response(request: Request, path: Path, media_type: str):
     size = path.stat().st_size
-    media_type = MEDIA_TYPES.get(path.suffix.lower(), "application/octet-stream")
     headers = {
         "Accept-Ranges": "bytes",
         "Referrer-Policy": "no-referrer",
@@ -216,8 +208,73 @@ def stream(video_id: int, request: Request, conn: sqlite3.Connection = Depends(g
         iter_file(path, start, end),
         status_code=206,
         media_type=media_type,
-        headers={**headers, "Content-Range": f"bytes {start}-{end}/{size}", "Content-Length": str(end - start + 1)},
+        headers={
+            **headers,
+            "Content-Range": f"bytes {start}-{end}/{size}",
+            "Content-Length": str(end - start + 1),
+        },
     )
+
+
+@router.get("/videos/{video_id}/stream")
+def stream(video_id: int, request: Request, conn: sqlite3.Connection = Depends(get_db)):
+    row = library_service.get_video(conn, video_id)
+    if row is None:
+        return _error(404, "Видео не найдено", "not_found")
+    path = Path(row["path"])
+    if not path.exists():
+        return _error(404, "Файл не найден на диске", "file_missing")
+    return _range_response(request, path, MEDIA_TYPES.get(path.suffix.lower(), "application/octet-stream"))
+
+
+@router.get("/videos/{video_id}/playback")
+def playback_info(video_id: int, request: Request, conn: sqlite3.Connection = Depends(get_db)):
+    row = library_service.get_video(conn, video_id)
+    if row is None:
+        return _error(404, "Видео не найдено", "not_found")
+    return request.app.state.preview.plan(dict(row))
+
+
+@router.post("/videos/{video_id}/prepare-preview")
+def prepare_preview(video_id: int, request: Request, conn: sqlite3.Connection = Depends(get_db)):
+    row = library_service.get_video(conn, video_id)
+    if row is None:
+        return _error(404, "Видео не найдено", "not_found")
+    info = request.app.state.preview.start(dict(row))
+    if info.get("mode") == "unsupported":
+        return JSONResponse(
+            status_code=422,
+            content={"detail": info.get("error") or "Неподдерживаемый файл", "code": "preview_unsupported"},
+        )
+    return JSONResponse(
+        status_code=202 if info.get("state") in {"queued", "preparing"} else 200,
+        content=info,
+    )
+
+
+@router.get("/videos/{video_id}/preview")
+def preview_stream(video_id: int, request: Request, conn: sqlite3.Connection = Depends(get_db)):
+    row = library_service.get_video(conn, video_id)
+    if row is None:
+        return _error(404, "Видео не найдено", "not_found")
+    manager = request.app.state.preview
+    path = manager.preview_file(dict(row))
+    if path is not None:
+        return _range_response(request, path, "video/mp4")
+    info = manager.plan(dict(row))
+    if info.get("mode") == "direct":
+        return JSONResponse(status_code=409, content={"detail": "Превью не требуется", "code": "preview_direct"})
+    if info.get("state") in {"queued", "preparing"}:
+        return JSONResponse(
+            status_code=409,
+            content={"detail": "Превью готовится", "code": "preview_preparing", "progress": info.get("progress", 0)},
+        )
+    if info.get("state") == "error":
+        return JSONResponse(
+            status_code=422,
+            content={"detail": info.get("error") or "Не удалось подготовить превью", "code": "preview_failed"},
+        )
+    return JSONResponse(status_code=409, content={"detail": "Превью не готово", "code": "preview_not_ready"})
 
 
 @router.get("/videos/{video_id}/thumb")

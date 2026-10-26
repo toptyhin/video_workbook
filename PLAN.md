@@ -272,7 +272,11 @@ M1 → M2 → M3 → M4 ─┐
 | M9 Полировка | ⚠️ частично | Темы light/dark/system, настройки, горячие клавиши, тосты, i18n (199 ключей), restoring панелей; a11y-аудит и ручные сценарии §8 — открыты. |
 | A Приёмка/CI | ⚠️ частично | `scripts/ci.sh`, `scripts/acceptance.sh` (12/12), Playwright 5/5; пункты чистой VM, offline-проверки и 10-мин прогона `small` — открыты (`docs/acceptance.md`). |
 
-Тесты на момент отчёта: backend **48 passed** (ruff чистый), frontend **54 passed** (tsc без ошибок), e2e **5 passed**.
+Тесты на момент отчёта: backend **51 passed** (ruff чистый), frontend **57 passed** (tsc без ошибок), e2e **6 passed**.
+
+Дополнительно (после первого статуса): автопревью несовместимых форматов — `services/media_info.py` + `services/preview.py`
+(HEVC/MKV → remux/transcode, прогресс, кэш, очистка), проверено на реальном HEVC 10-bit файле;
+изменяемая высота панели предпросмотра (drag/клавиатура, `localStorage`), e2e-тест.
 
 ## 14. Вне объёма
 

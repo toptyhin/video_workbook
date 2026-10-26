@@ -1,14 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { mediaUrl } from '../../api/client';
+import { api, mediaUrl } from '../../api/client';
 import { vl } from '../../api/electron';
-import type { Video } from '../../api/types';
+import type { PlaybackInfo, Video } from '../../api/types';
 import { useHotkeys } from '../../hooks/useHotkeys';
 import { usePlaybackClock } from '../../hooks/usePlaybackClock';
 import { STORAGE_KEYS } from '../../lib/constants';
 import { t } from '../../lib/i18n';
-import { clamp } from '../../lib/time';
 import { readStorage, writeStorage } from '../../lib/storage';
+import { clamp } from '../../lib/time';
 import { usePlayerStore } from '../../state/playerStore';
 import { useUIStore } from '../../state/uiStore';
 import { VideoControls } from './VideoControls';
@@ -30,13 +30,24 @@ export interface VideoPlayerProps {
 
 type VideoErrorKind = 'missing' | 'unsupported';
 
+const POLL_INTERVAL_MS = 1200;
+
+function errorText(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
 export function VideoPlayer({ videoId, video = null, onShowInFolder, className }: VideoPlayerProps): JSX.Element {
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const pollTimer = useRef<number | undefined>(undefined);
   const [volume, setVolume] = useState(() => clamp(readStorage<number>(STORAGE_KEYS.volume, 1), 0, 1));
   const [muted, setMuted] = useState(false);
   const [fullscreen, setFullscreen] = useState(false);
   const [videoError, setVideoError] = useState<VideoErrorKind | null>(null);
+  const [playback, setPlayback] = useState<PlaybackInfo | null>(null);
+  const [previewError, setPreviewError] = useState<string | null>(null);
+  const [src, setSrc] = useState<string | undefined>(undefined);
+  const [retryTick, setRetryTick] = useState(0);
 
   const loading = usePlayerStore((state) => state.loading);
   const playing = usePlayerStore((state) => state.playing);
@@ -51,20 +62,79 @@ export function VideoPlayer({ videoId, video = null, onShowInFolder, className }
 
   useEffect(() => {
     setVideoError(null);
-    const element = videoRef.current;
+    setPreviewError(null);
+    setPlayback(null);
+    setSrc(undefined);
+    if (pollTimer.current) {
+      window.clearTimeout(pollTimer.current);
+      pollTimer.current = undefined;
+    }
     if (videoId === null) {
       usePlayerStore.getState().reset();
       return;
     }
     void usePlayerStore.getState().load(videoId, true);
-    if (element) {
-      try {
-        element.load();
-      } catch {
-        /* элемент ещё не смонтирован — браузер загрузит src сам */
+
+    let cancelled = false;
+    let lastProgress = -1;
+
+    const applyInfo = (info: PlaybackInfo): void => {
+      if (cancelled) return;
+      setPlayback(info);
+      if (info.mode === 'direct') {
+        setSrc(mediaUrl(videoId, 'stream'));
+        return;
       }
-    }
-  }, [videoId]);
+      if (info.mode === 'unsupported' || info.state === 'error') {
+        setPreviewError(info.error ?? t('player.unsupported'));
+        return;
+      }
+      if (info.state === 'ready') {
+        setSrc(mediaUrl(videoId, 'preview'));
+        return;
+      }
+      if (info.state === 'idle') {
+        void api
+          .preparePreview(videoId)
+          .then((next) => applyInfo(next))
+          .catch((error: unknown) => {
+            if (!cancelled) setPreviewError(errorText(error));
+          });
+        return;
+      }
+      if (Math.abs(info.progress - lastProgress) > 0.005) {
+        lastProgress = info.progress;
+      }
+      poll();
+    };
+
+    const poll = (): void => {
+      if (cancelled) return;
+      pollTimer.current = window.setTimeout(() => {
+        if (cancelled) return;
+        void api
+          .playback(videoId)
+          .then((info) => applyInfo(info))
+          .catch((error: unknown) => {
+            if (!cancelled) setPreviewError(errorText(error));
+          });
+      }, POLL_INTERVAL_MS);
+    };
+
+    void api
+      .playback(videoId)
+      .then((info) => applyInfo(info))
+      // Если /playback недоступен, пробуем прямой поток (совместимые файлы).
+      .catch(() => setSrc(mediaUrl(videoId, 'stream')));
+
+    return () => {
+      cancelled = true;
+      if (pollTimer.current) {
+        window.clearTimeout(pollTimer.current);
+        pollTimer.current = undefined;
+      }
+    };
+  }, [videoId, retryTick]);
 
   useEffect(() => {
     const element = videoRef.current;
@@ -82,6 +152,10 @@ export function VideoPlayer({ videoId, video = null, onShowInFolder, className }
   const handleError = useCallback((): void => {
     const element = videoRef.current;
     const code = element?.error?.code;
+    if (src?.includes('/preview')) {
+      setPreviewError(t('player.previewFailed', { message: code ? `code ${code}` : 'decode error' }));
+      return;
+    }
     const kind: VideoErrorKind = code === MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED ? 'unsupported' : 'missing';
     setVideoError(kind);
     try {
@@ -89,7 +163,12 @@ export function VideoPlayer({ videoId, video = null, onShowInFolder, className }
     } catch {
       /* логирование не должно ломать UI */
     }
-  }, [videoId]);
+  }, [src, videoId]);
+
+  const handleMetadata = useCallback((): void => {
+    setVideoError(null);
+    if (src?.includes('/preview')) setPreviewError(null);
+  }, [src]);
 
   const handleReveal = useCallback((): void => {
     try {
@@ -101,7 +180,7 @@ export function VideoPlayer({ videoId, video = null, onShowInFolder, className }
     } catch (error) {
       useUIStore.getState().pushToast({
         kind: 'error',
-        message: error instanceof Error ? error.message : String(error),
+        message: errorText(error),
       });
     }
   }, [onShowInFolder, video?.path]);
@@ -127,6 +206,11 @@ export function VideoPlayer({ videoId, video = null, onShowInFolder, className }
     }
   }, []);
 
+  const preparing =
+    playback !== null && playback.mode !== 'direct' && (playback.state === 'queued' || playback.state === 'preparing');
+  const percent = Math.round((playback?.progress ?? 0) * 100);
+  const previewFailed = previewError ?? (playback?.state === 'error' ? playback.error : null);
+
   return (
     <div ref={containerRef} className={`vl-player${className ? ` ${className}` : ''}`}>
       <div className="vl-player__stage">
@@ -134,18 +218,43 @@ export function VideoPlayer({ videoId, video = null, onShowInFolder, className }
         <video
           ref={videoRef}
           className="vl-player__video"
-          src={videoId !== null ? mediaUrl(videoId, 'stream') : undefined}
+          src={src}
           preload="metadata"
           playsInline
           onError={handleError}
-          onLoadedMetadata={() => setVideoError(null)}
+          onLoadedMetadata={handleMetadata}
           aria-label={video?.title ?? (videoId !== null ? `#${videoId}` : t('player.noVideo'))}
         />
         {videoId === null && <div className="vl-player__overlay">{t('player.noVideo')}</div>}
-        {videoId !== null && loading && !videoError && (
-          <div className="vl-player__overlay">{t('timings.loading')}</div>
+        {videoId !== null && preparing && (
+          <div className="vl-player__overlay vl-player__overlay--preview" role="status" aria-live="polite">
+            <p className="vl-player__overlay-text">
+              {t('player.previewProgress', { percent })}
+            </p>
+            <div className="vl-player__preview-bar" aria-hidden="true">
+              <div className="vl-player__preview-bar-fill" style={{ width: `${percent}%` }} />
+            </div>
+            {playback?.detail && (
+              <p className="vl-player__overlay-hint">{t('player.previewDetail', { detail: playback.detail })}</p>
+            )}
+          </div>
         )}
-        {videoId !== null && videoError && (
+        {videoId !== null && !preparing && previewFailed && (
+          <div className="vl-player__overlay vl-player__overlay--error" role="alert">
+            <p className="vl-player__overlay-text">{t('player.previewFailed', { message: previewFailed })}</p>
+            <div className="vl-player__overlay-actions">
+              <button type="button" onClick={() => setRetryTick((value) => value + 1)}>
+                {t('player.previewRetry')}
+              </button>
+              {(video?.path || onShowInFolder) && (
+                <button type="button" onClick={handleReveal}>
+                  {t('player.showInFolder')}
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+        {videoId !== null && !preparing && !previewFailed && videoError && (
           <div className="vl-player__overlay vl-player__overlay--error" role="alert">
             <p className="vl-player__overlay-text">
               {videoError === 'missing' ? t('player.fileMissing') : t('player.unsupported')}
@@ -156,6 +265,9 @@ export function VideoPlayer({ videoId, video = null, onShowInFolder, className }
               </button>
             )}
           </div>
+        )}
+        {videoId !== null && loading && !videoError && !preparing && !previewFailed && !src && (
+          <div className="vl-player__overlay">{t('timings.loading')}</div>
         )}
       </div>
       <VideoControls

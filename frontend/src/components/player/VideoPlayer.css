@@ -59,3 +59,33 @@
   margin: 0;
   max-width: 420px;
 }
+
+.vl-player__overlay--preview {
+  gap: 14px;
+}
+
+.vl-player__preview-bar {
+  width: min(420px, 70%);
+  height: 6px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.22);
+  overflow: hidden;
+}
+
+.vl-player__preview-bar-fill {
+  height: 100%;
+  background: var(--vl-accent);
+  transition: width 0.3s linear;
+}
+
+.vl-player__overlay-hint {
+  margin: 0;
+  max-width: 460px;
+  font-size: 12px;
+  color: var(--vl-text-muted);
+}
+
+.vl-player__overlay-actions {
+  display: flex;
+  gap: 8px;
+}

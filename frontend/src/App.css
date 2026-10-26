@@ -62,11 +62,26 @@
   background: var(--vl-bg-elevated);
 }
 
+.vl-app__splitter {
+  flex: 0 0 6px;
+  height: 6px;
+  cursor: row-resize;
+  background: var(--vl-border);
+  touch-action: none;
+  transition: background 0.12s ease;
+}
+
+.vl-app__splitter:hover,
+.vl-app__splitter:focus-visible {
+  background: var(--vl-accent);
+  outline: none;
+}
+
 .vl-app__preview {
   flex: 0 0 auto;
   display: flex;
-  min-height: 0;
-  height: 380px;
+  min-height: 200px;
+  max-height: calc(100vh - 260px);
   border-top: 1px solid var(--vl-border);
   background: var(--vl-bg-sunken);
 }
@@ -77,10 +92,4 @@
   display: flex;
   flex-direction: column;
   min-height: 0;
-}
-
-@media (max-height: 800px) {
-  .vl-app__preview {
-    height: 320px;
-  }
 }

@@ -197,5 +197,17 @@
   "player.stepBack": "−5 секунд",
   "player.stepForward": "+5 секунд",
   "timings.collapse": "Свернуть панель таймингов",
-  "timings.expand": "Развернуть панель таймингов"
+  "timings.expand": "Развернуть панель таймингов",
+  "player.preparingPreview": "Готовим предпросмотр",
+  "player.previewProgress": "Готовим предпросмотр: {percent}%",
+  "player.previewQueued": "В очереди на конвертацию",
+  "player.previewDetail": "Исходный формат: {detail}. Конвертируем для просмотра.",
+  "player.previewFailed": "Не удалось подготовить предпросмотр: {message}",
+  "player.previewRetry": "Повторить",
+  "player.previewWaiting": "Превью готовится, дождитесь окончания конвертации",
+  "preview.resize": "Изменить высоту панели предпросмотра",
+  "settings.previewCache": "Кэш превью (видео)",
+  "settings.previewCacheHint": "Несовместимые с браузером форматы (HEVC/MKV) конвертируются для просмотра и кэшируются.",
+  "settings.clearPreviewCache": "Очистить кэш превью",
+  "settings.previewCacheCleared": "Кэш превью очищен"
 }

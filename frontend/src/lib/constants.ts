@@ -4,6 +4,7 @@ export const STORAGE_KEYS = {
   sidebarTab: 'vl.ui.sidebarTab',
   timingsWidth: 'vl.ui.timingsWidth',
   timingsCollapsed: 'vl.ui.timingsCollapsed',
+  previewHeight: 'vl.ui.previewHeight',
   sort: 'vl.ui.sort',
   volume: 'vl.player.volume',
   positions: 'vl.playback.positions',

@@ -64,6 +64,23 @@ test('открытие видео и панель таймингов с тран
   await expect(page.locator('.vl-segment-row').first()).toBeVisible({ timeout: 20_000 });
 });
 
+test('высоту панели предпросмотра можно менять', async ({ page }) => {
+  await page.goto('/');
+  const row = page.locator('.vl-table tbody tr', { hasText: 'lesson-03.webm' });
+  await row.dblclick();
+  await expect(page.locator('.vl-segment-row').first()).toBeVisible({ timeout: 20_000 });
+  const preview = page.locator('.vl-app__preview');
+  const before = await preview.evaluate((element) => element.getBoundingClientRect().height);
+  await page.locator('.vl-app__splitter').focus();
+  await page.keyboard.press('ArrowUp');
+  await page.keyboard.press('ArrowUp');
+  const after = await preview.evaluate((element) => element.getBoundingClientRect().height);
+  expect(after).toBeGreaterThan(before);
+  // значение переживает перезагрузку страницы
+  const stored = await page.evaluate(() => window.localStorage.getItem('vl.ui.previewHeight'));
+  expect(stored).toContain('v');
+});
+
 test('создание метки через диалог', async ({ page }) => {
   await page.goto('/');
   const row = page.locator('.vl-table tbody tr', { hasText: 'lesson-03.webm' });

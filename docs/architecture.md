@@ -36,6 +36,22 @@ Renderer: SPA (React), грузится с бэкенда   └── SSE /api/e
 health, settings (GET/PATCH), events (SSE), folders, fs/list, videos (list/scan/enqueue/delete/reprocess/cancel/segments/stream/thumb), queue, tags (tree/CRUD/export/import + теги файлов и сегментов), search (`scope=all|files|segments|annotations`, `tag:`/`file:`), annotations (list/create/bulk/get/patch/delete/export/import).
 Формат ошибок — `{detail, code}`. Контракты и формы ответов — `plans/00-conventions.md` §4.
 
+## Автопревью несовместимых форматов
+
+Chromium не декодирует HEVC/10-bit и не все контейнеры. `services/media_info.py` определяет кодеки ffprobe;
+`services/preview.py` выбирает режим:
+
+| Режим | Когда | Действие ffmpeg |
+|---|---|---|
+| `direct` | H.264/VP9/AV1 8-bit в MP4/WebM + AAC/MP3/Opus/Vorbis | оригинал через `/api/videos/{id}/stream` |
+| `remux` | видео-кодек браузерный, контейнер нет | `-c:v copy -c:a aac` → MP4 (быстро) |
+| `transcode` | HEVC/MPEG-4/10-bit и т.п. | `libx264 veryfast crf23 yuv420p`, 720p для >720p, AAC stereo |
+
+Эндпоинты: `GET /api/videos/{id}/playback` (план и состояние), `POST /api/videos/{id}/prepare-preview`
+(запуск фоновой задачи, прогресс через SSE `video.preview` и опрос), `GET /api/videos/{id}/preview`
+(Range-стриминг готового MP4), `POST /api/maintenance/clear-preview-cache`.
+Кэш: `$VL_DATA_DIR/cache/preview/`, ключ `{id}_{mtime}_{mode}`; старая версия файла удаляется при пересборке.
+
 ## Поиск
 
 `segments_fts` и `annotations_fts` — FTS5 external content (`unicode61 remove_diacritics 2`), триггеры синхронизации.

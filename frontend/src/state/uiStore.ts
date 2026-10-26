@@ -21,6 +21,7 @@ interface UIState {
   sidebarWidth: number;
   timingsWidth: number;
   timingsCollapsed: boolean;
+  previewHeight: number;
   selectedVideoId: number | null;
   settingsOpen: boolean;
   hotkeysOpen: boolean;
@@ -32,6 +33,7 @@ interface UIState {
   setSidebarWidth: (width: number) => void;
   setTimingsWidth: (width: number) => void;
   toggleTimings: () => void;
+  setPreviewHeight: (height: number) => void;
   selectVideo: (id: number | null) => void;
   setSettingsOpen: (open: boolean) => void;
   setHotkeysOpen: (open: boolean) => void;
@@ -49,6 +51,7 @@ export const useUIStore = create<UIState>((set, get) => ({
   sidebarWidth: readStorage<number>(STORAGE_KEYS.sidebarWidth, 260),
   timingsWidth: readStorage<number>(STORAGE_KEYS.timingsWidth, 320),
   timingsCollapsed: readStorage<boolean>(STORAGE_KEYS.timingsCollapsed, false),
+  previewHeight: readStorage<number>(STORAGE_KEYS.previewHeight, 380),
   selectedVideoId: null,
   settingsOpen: false,
   hotkeysOpen: false,
@@ -78,6 +81,12 @@ export const useUIStore = create<UIState>((set, get) => ({
     const timingsCollapsed = !get().timingsCollapsed;
     writeStorage(STORAGE_KEYS.timingsCollapsed, timingsCollapsed);
     set({ timingsCollapsed });
+  },
+  setPreviewHeight: (height) => {
+    const maxHeight = typeof window === 'undefined' ? 700 : Math.max(320, window.innerHeight - 260);
+    const clamped = Math.min(Math.max(Math.round(height), 200), maxHeight);
+    writeStorage(STORAGE_KEYS.previewHeight, clamped);
+    set({ previewHeight: clamped });
   },
   selectVideo: (selectedVideoId) => set({ selectedVideoId }),
   setSettingsOpen: (settingsOpen) => set({ settingsOpen }),

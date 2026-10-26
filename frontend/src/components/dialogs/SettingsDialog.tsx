@@ -43,6 +43,7 @@ export function SettingsDialog() {
 
   const [values, setValues] = useState<SettingsValues>({});
   const [folders, setFolders] = useState<Folder[]>([]);
+  const [clearingPreview, setClearingPreview] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -346,6 +347,27 @@ export function SettingsDialog() {
                   aria-disabled="true"
                 >
                   {t('settings.clearModelCache')}
+                </button>
+              </section>
+
+              <section className="vl-settings__section">
+                <h3 className="vl-settings__section-title">{t('settings.previewCache')}</h3>
+                <p className="vl-settings__hint">{t('settings.previewCacheHint')}</p>
+                <button
+                  type="button"
+                  disabled={clearingPreview}
+                  onClick={() => {
+                    setClearingPreview(true);
+                    void api
+                      .clearPreviewCache()
+                      .then(() => pushToast({ kind: 'success', message: t('settings.previewCacheCleared') }))
+                      .catch((error: unknown) =>
+                        pushToast({ kind: 'error', message: t('toast.error', { message: errorText(error) }) }),
+                      )
+                      .finally(() => setClearingPreview(false));
+                  }}
+                >
+                  {t('settings.clearPreviewCache')}
                 </button>
               </section>
 

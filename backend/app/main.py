@@ -16,6 +16,7 @@ from .config import Config, get_config
 from .db import connect, migrate
 from .routers import annotations, events, folders, fs, health, search, settings, tags, videos
 from .services.events import EventBus
+from .services.preview import PreviewManager
 from .services.queue import TranscriptionQueue
 from .services.scanner import Scanner
 from .services.watcher import LibraryWatcher
@@ -60,17 +61,20 @@ def create_app(config: Config | None = None) -> FastAPI:
         scanner.bind_loop(asyncio.get_running_loop())
         transcription_queue = TranscriptionQueue(cfg, bus)
         watcher = LibraryWatcher(cfg, bus)
+        preview = PreviewManager(cfg, bus)
         transcription_queue.start()
         watcher.start(roots)
         app.state.bus = bus
         app.state.scanner = scanner
         app.state.queue = transcription_queue
         app.state.watcher = watcher
+        app.state.preview = preview
         try:
             yield
         finally:
             transcription_queue.stop()
             watcher.stop()
+            preview.stop()
 
     app = FastAPI(
         title="VideoLessons",
