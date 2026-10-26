@@ -15,7 +15,7 @@
 | Backend | Python 3.11, FastAPI, uvicorn, faster-whisper (CPU INT8), ffmpeg |
 | БД | SQLite (WAL) + FTS5 |
 | Frontend | Vite 6, React 18, TypeScript, zustand |
-| Тесты | pytest (45), vitest/RTL (54), Playwright (5 e2e) |
+| Тесты | pytest (48), vitest/RTL (54), Playwright (5 e2e) |
 
 ## Быстрый старт (dev)
 
@@ -58,7 +58,11 @@ bash scripts/build-backend.sh docker   # → backend-dist/vl-backend
 bash scripts/fetch-ffmpeg.sh
 bash scripts/fetch-model.sh small
 
-# electron: frontend + main + .deb/.AppImage
+# electron: frontend + main + .deb
+bash scripts/build-electron.sh
+bash scripts/build-deb.sh          # ручная сборка .deb (ar+tar) → dist/VideoLessons-*.deb
+
+# альтернатива: electron-builder (если окружение позволяет)
 bash scripts/make-release.sh
 ```
 
@@ -76,5 +80,5 @@ bash scripts/make-release.sh
 
 ## Статус
 
-M1–M7 реализованы и покрыты тестами; M8 — backend собирается PyInstaller/Docker, .deb/AppImage — через `make-release.sh`;
+M1–M7 реализованы и покрыты тестами; M8 — backend собирается PyInstaller/Docker, `.deb` собран (352 MB, `dist/VideoLessons-0.1.0-amd64.deb`), AppImage требует mksquashfs/appimagetool;
 M9 — темы/настройки/клавиши/уведомления в UI. Открытые пункты приёмки (чистая VM, 10-мин прогон `small`, offline-проверка) — в `docs/acceptance.md`.

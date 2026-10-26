@@ -7,7 +7,7 @@
 | Проверка | Команда | Результат |
 |---|---|---|
 | Backend lint | `.venv/bin/ruff check backend/app backend/tests` | ✅ All checks passed |
-| Backend tests | `(cd backend && ../.venv/bin/python -m pytest)` | ✅ **45 passed** (M1–M7: skeleton, library, transcription-queue, search, tags, annotations, auth/SSE) |
+| Backend tests | `(cd backend && ../.venv/bin/python -m pytest)` | ✅ **48 passed** (M1–M7: skeleton, library, transcription-queue, search, tags, annotations, auth/SSE) |
 | Frontend typecheck | `npm --prefix frontend run typecheck` | ✅ 0 ошибок |
 | Frontend unit/component | `npm --prefix frontend run test` | ✅ **54 passed** (9 файлов) |
 | Production build | `npm --prefix frontend run build` | ✅ `dist/` 273 KB JS + 37 KB CSS |
@@ -16,15 +16,19 @@
 | Реальная транскрипция | faster-whisper 1.2.1, модель `tiny` INT8, русская речь (espeak-ng) | ✅ lang=ru, сегменты записаны в БД, отображены в UI |
 | Sidecar PyInstaller (host) | `packaging/backend.spec` | ✅ onedir 425 MB, стартует, применяет миграции, печатает `VL_READY` |
 | Sidecar PyInstaller (Ubuntu 22.04 Docker) | `scripts/build-backend.sh docker` | ✅ `backend-dist/vl-backend` 382 MB (собран на glibc 22.04) |
-| Electron sidecar handshake | `electron .` (без GUI) | ✅ main запустил backend, получил `VL_READY`, загрузил SPA; GUI-окно в sandbox агента не отображается (нет доступа к X-авторизации) |
+| Electron sidecar handshake | `electron .` (без GUI) | ✅ main запустил backend, получил `VL_READY`; GUI-окно в sandbox агента не отображается (нет доступа к X-авторизации) |
+| Packaged backend (Docker-сборка) | `backend-dist/vl-backend` + curl | ✅ `/api/health`, `/api/models` (tiny bundled), SPA `index.html` отдаётся |
+| `.deb` (ручная сборка ar+tar) | `scripts/build-deb.sh` | ✅ `dist/VideoLessons-0.1.0-amd64.deb` (352 MB): `control`, `postinst` (SUID chrome-sandbox), launcher `videolessons`, ресурсы backend/frontend/ffmpeg/models; установка на Ubuntu не выполнялась (нет dpkg в среде) |
 
-Скриншот: [docs/screens/app.png](screens/app.png) — список «Метки», плеер, таймпанель с сегментом и меткой, таймлайн с маркером.
+Скриншот: [docs/screens/app.png](screens/app.png)
+
+Артефакт: `dist/VideoLessons-0.1.0-amd64.deb` (352 MB). AppImage не собран: в среде нет `mksquashfs`/appimagetool, electron-builder падает на tmp-сокетах sandbox — ручной `.deb` собран через `ar`+`tar` (`scripts/build-deb.sh`). — список «Метки», плеер, таймпанель с сегментом и меткой, таймлайн с маркером.
 
 ## Критерии TARGET.md §7
 
 | # | Критерий | Статус | Чем проверено / что осталось |
 |---|---|---|---|
-| 1 | Первый запуск `.deb` на Ubuntu без Python/ffmpeg, окно < 5 с | ⏳ | Нужна чистая VM: `scripts/vm-smoke.sh`. Docker-сборка backend готова; `.deb`/AppImage собираются electron-builder (см. ниже) |
+| 1 | Первый запуск `.deb` на Ubuntu без Python/ffmpeg, окно < 5 с | ⚠️ артефакт готов | `.deb` собран и проверен по структуре; установка/запуск на чистой Ubuntu — `scripts/vm-smoke.sh` (нужна VM) |
 | 2 | Индексация папки с 3 видео, корректные длительности | ✅ | `test_m2_library.py` (scan/ffprobe/дедуп/список), e2e «библиотека загружается» |
 | 3 | Транскрипция RU 10 мин, задержка прогресса | ⚠️ частично | Пайплайн проверен на коротком клипе (tiny). Нужен прогон 10-мин файла моделью `small` на целевом CPU: время/RTF и задержка прогресса |
 | 4 | Поиск слова → файл и таймкод, клик → seek | ✅ | `test_m4_search.py`, e2e «поиск по меткам» |

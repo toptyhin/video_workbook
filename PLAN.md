@@ -268,11 +268,11 @@ M1 → M2 → M3 → M4 ─┐
 | M5 Плеер/тайминги | ✅ | `<video>`+Range, таймлайн с маркерами, панель таймингов с автопрокруткой; e2e открытия и seek. |
 | M6 Теги | ✅ | Иерархия, CRUD, фильтры, теги файлов/сегментов/меток, экспорт/импорт; pytest. |
 | M7 Метки + поиск | ✅ | Диалог/`Ctrl+M`/drag по таймлайну/resize/bulk, undo/redo, теги меток, `scope=annotations`, панель «Метки», экспорт/импорт; pytest + e2e (создание, поиск, переход на таймкод). |
-| M8 Упаковка | ⚠️ частично | PyInstaller onedir собран локально (425 MB) и в Docker Ubuntu 22.04 (382 MB), запускается; `.deb` собирается `scripts/build-deb.sh`; AppImage/electron-builder в sandbox агента недоступны (tmp/socket, нет mksquashfs). Проверка на чистой VM — открыта. |
+| M8 Упаковка | ⚠️ частично | PyInstaller onedir собран локально (425 MB) и в Docker Ubuntu 22.04 (382 MB), запускается; `.deb` собран вручную (`scripts/build-deb.sh`, 352 MB, структура проверена); AppImage/electron-builder в sandbox агента недоступны (tmp/socket, нет mksquashfs). Проверка на чистой VM — открыта. |
 | M9 Полировка | ⚠️ частично | Темы light/dark/system, настройки, горячие клавиши, тосты, i18n (199 ключей), restoring панелей; a11y-аудит и ручные сценарии §8 — открыты. |
 | A Приёмка/CI | ⚠️ частично | `scripts/ci.sh`, `scripts/acceptance.sh` (12/12), Playwright 5/5; пункты чистой VM, offline-проверки и 10-мин прогона `small` — открыты (`docs/acceptance.md`). |
 
-Тесты на момент отчёта: backend **45 passed** (ruff чистый), frontend **54 passed** (tsc без ошибок), e2e **5 passed**.
+Тесты на момент отчёта: backend **48 passed** (ruff чистый), frontend **54 passed** (tsc без ошибок), e2e **5 passed**.
 
 ## 14. Вне объёма
 

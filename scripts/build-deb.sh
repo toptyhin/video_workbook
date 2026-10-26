@@ -16,7 +16,7 @@ for required in dist-electron/main.js frontend/dist/index.html backend-dist/vl-b
 done
 
 rm -rf "$STAGE"; mkdir -p "$APPDIR/resources" "$DEBIAN" \
-  "$PKGROOT/usr/share/applications" "$PKGROOT/usr/share/icons/hicolor/512x512/apps"
+  "$PKGROOT/usr/bin" "$PKGROOT/usr/share/applications" "$PKGROOT/usr/share/icons/hicolor/512x512/apps"
 
 cp -a "$ROOT/node_modules/electron/dist/." "$APPDIR/"
 cp -a "$ROOT/dist-electron" "$APPDIR/dist-electron"
