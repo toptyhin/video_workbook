@@ -22,6 +22,9 @@ ffmpeg -y -hide_banner -loglevel error -f lavfi -i "color=c=0x203040:s=320x180:d
 ffmpeg -y -hide_banner -loglevel error -f lavfi -i "color=c=0x402030:s=320x180:d=4" \
   -f lavfi -i "sine=frequency=550:duration=4" -shortest \
   -c:v libvpx -b:v 300k -c:a libopus "$FIX/lesson-02.webm"
+ffmpeg -y -hide_banner -loglevel error -f lavfi -i "color=c=0x304020:s=320x180:d=4" \
+  -f lavfi -i "sine=frequency=220:duration=4" -shortest \
+  -c:v mpeg4 -c:a aac -f matroska "$FIX/lesson-04-unsupported.mkv" || true
 if command -v espeak-ng >/dev/null; then
   espeak-ng -v ru -s 140 -w "$ROOT/.tmp/e2e-speech.wav" \
     "Сегодня мы разберём производные сложных функций." || true

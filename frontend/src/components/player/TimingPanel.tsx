@@ -8,6 +8,7 @@ import { useUndoStack } from '../../hooks/useUndoStack';
 import { MIN_ANNOTATION_MS } from '../../lib/constants';
 import { t } from '../../lib/i18n';
 import { useAnnotationsStore, type AnnotationRange } from '../../state/annotationsStore';
+import { useExternalStore } from '../../state/externalStore';
 import { usePlayerStore } from '../../state/playerStore';
 import { pushError, useUIStore } from '../../state/uiStore';
 import { AnnotationRow } from './AnnotationRow';
@@ -449,6 +450,19 @@ export function TimingPanel({ videoId, video = null, className }: TimingPanelPro
                 onClick={() => useAnnotationsStore.getState().createAtPlayhead()}
               >
                 {t('annotations.add')}
+              </button>
+              <button
+                type="button"
+                title={t('external.openTitle')}
+                disabled={videoId === null}
+                onClick={() => {
+                  if (videoId === null) return;
+                  useExternalStore
+                    .getState()
+                    .openLaunch(videoId, usePlayerStore.getState().positionMs);
+                }}
+              >
+                {t('external.open')}
               </button>
             </>
           )}

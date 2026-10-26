@@ -15,6 +15,10 @@ DEFAULTS: dict[str, Any] = {
     "tags.multi_select_mode": "union",
     "tags.max_depth": 5,
     "log.level": "INFO",
+    "external.player": "mpv",
+    "external.player_path": "",
+    "external.policy": "ask",
+    "external.pass_marks": True,
 }
 
 ALLOWED_VALUES: dict[str, set[Any]] = {
@@ -23,6 +27,8 @@ ALLOWED_VALUES: dict[str, set[Any]] = {
     "theme": {"light", "dark", "system"},
     "tags.multi_select_mode": {"union", "intersection"},
     "log.level": {"INFO", "DEBUG", "WARNING"},
+    "external.player": {"mpv", "vlc", "system"},
+    "external.policy": {"ask", "always", "never"},
 }
 
 
@@ -50,6 +56,14 @@ def get_all(conn: sqlite3.Connection) -> dict[str, Any]:
 def validate(key: str, value: Any) -> Any:
     if key not in DEFAULTS:
         raise SettingsError("unknown_setting", f"Неизвестная настройка: {key}")
+    if key == "external.player_path":
+        if not isinstance(value, str) or len(value) > 500:
+            raise SettingsError("invalid_setting", "external.player_path: ожидается строка до 500 символов")
+        return value.strip()
+    if key == "external.pass_marks":
+        if not isinstance(value, bool):
+            raise SettingsError("invalid_setting", "external.pass_marks: ожидается true/false")
+        return value
     if key == "tags.max_depth":
         if not isinstance(value, int) or isinstance(value, bool) or not 1 <= value <= 8:
             raise SettingsError("invalid_setting", "tags.max_depth: ожидается целое 1..8")

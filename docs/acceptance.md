@@ -7,15 +7,17 @@
 | Проверка | Команда | Результат |
 |---|---|---|
 | Backend lint | `.venv/bin/ruff check backend/app backend/tests` | ✅ All checks passed |
-| Backend tests | `(cd backend && ../.venv/bin/python -m pytest)` | ✅ **51 passed** (M1–M7 + автопревью: skeleton, library, transcription-queue, search, tags, annotations, preview, auth/SSE) |
+| Backend tests | `(cd backend && ../.venv/bin/python -m pytest)` | ✅ **55 passed** (M1–M7 + preview + external: skeleton, library, queue, search, tags, annotations, preview, mpv IPC, auth/SSE) |
 | Frontend typecheck | `npm --prefix frontend run typecheck` | ✅ 0 ошибок |
-| Frontend unit/component | `npm --prefix frontend run test` | ✅ **57 passed** (10 файлов) |
+| Frontend unit/component | `npm --prefix frontend run test` | ✅ **66 passed** (13 файлов) |
 | Production build | `npm --prefix frontend run build` | ✅ `dist/` 273 KB JS + 37 KB CSS |
 | Electron main build | `npm run build:electron` | ✅ `dist-electron/main.js`, `preload.js` |
-| E2E (Playwright, Chromium) | `npx playwright test` | ✅ **6 passed**: библиотека, открытие видео + транскрипция, **изменение высоты панели предпросмотра**, создание метки через диалог, поиск по меткам с переходом на таймкод, панель «Метки» |
+| E2E (Playwright, Chromium) | `npx playwright test` | ✅ **7 passed**: библиотека, открытие видео + транскрипция, **CTA внешнего плеера для HEVC/MKV + диалог запуска**, изменение высоты панели, создание метки, поиск по меткам, панель «Метки» |
 | Реальная транскрипция | faster-whisper 1.2.1, модель `tiny` INT8, русская речь (espeak-ng) | ✅ lang=ru, сегменты записаны в БД, отображены в UI |
 | **HEVC 10-bit MKV (реальный файл пользователя)** | `playback` → `prepare-preview` → `preview` | ✅ план `transcode` (hevc/yuv420p10le + aac 6ch в mkv) → превью **h264, yuv420p, 1440×720**; Range 206; прогресс 0→100% |
 | Изменение высоты панели предпросмотра | e2e (клавиатура) + `uiStore` unit | ✅ высота меняется и сохраняется в `localStorage` (`vl.ui.previewHeight`) |
+| **Внешний плеер mpv: синхронизация** | `test_m9_external.py` (реальный mpv, headless `--vo=null`) | ✅ запуск с `--start`, duration/position из IPC, pause, seek, остановка |
+| Метки как главы/субтитры | unit `test_marks_files_generation` | ✅ корректные `CHAPTERxx` и `.ass` с цветом/тегами |
 | Sidecar PyInstaller (host) | `packaging/backend.spec` | ✅ onedir 425 MB, стартует, применяет миграции, печатает `VL_READY` |
 | Sidecar PyInstaller (Ubuntu 22.04 Docker) | `scripts/build-backend.sh docker` | ✅ `backend-dist/vl-backend` 382 MB (собран на glibc 22.04) |
 | Electron sidecar handshake | `electron .` (без GUI) | ✅ main запустил backend, получил `VL_READY`; GUI-окно в sandbox агента не отображается (нет доступа к X-авторизации) |

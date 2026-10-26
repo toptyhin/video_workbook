@@ -1687,6 +1687,7 @@ imported by:
  &#8226;   <a href="#app.main">app.main</a>
  &#8226;   <a href="#app.routers.annotations">app.routers.annotations</a>
  &#8226;   <a href="#app.routers.events">app.routers.events</a>
+ &#8226;   <a href="#app.routers.external">app.routers.external</a>
  &#8226;   <a href="#app.routers.folders">app.routers.folders</a>
  &#8226;   <a href="#app.routers.fs">app.routers.fs</a>
  &#8226;   <a href="#app.routers.health">app.routers.health</a>
@@ -1696,6 +1697,7 @@ imported by:
  &#8226;   <a href="#app.routers.videos">app.routers.videos</a>
  &#8226;   <a href="#app.services.annotations_service">app.services.annotations_service</a>
  &#8226;   <a href="#app.services.events">app.services.events</a>
+ &#8226;   <a href="#app.services.external_player">app.services.external_player</a>
  &#8226;   <a href="#app.services.library_service">app.services.library_service</a>
  &#8226;   <a href="#app.services.media_info">app.services.media_info</a>
  &#8226;   <a href="#app.services.preview">app.services.preview</a>
@@ -4612,6 +4614,7 @@ imports:
 imported by:
     <a href="#app.deps">app.deps</a>
  &#8226;   <a href="#app.main">app.main</a>
+ &#8226;   <a href="#app.services.external_player">app.services.external_player</a>
  &#8226;   <a href="#app.services.preview">app.services.preview</a>
  &#8226;   <a href="#app.services.queue">app.services.queue</a>
  &#8226;   <a href="#app.services.scanner">app.services.scanner</a>
@@ -4667,6 +4670,7 @@ imports:
   <div class="import">
 imported by:
     <a href="#app.routers.annotations">app.routers.annotations</a>
+ &#8226;   <a href="#app.routers.external">app.routers.external</a>
  &#8226;   <a href="#app.routers.folders">app.routers.folders</a>
  &#8226;   <a href="#app.routers.fs">app.routers.fs</a>
  &#8226;   <a href="#app.routers.search">app.routers.search</a>
@@ -4690,6 +4694,7 @@ imports:
  &#8226;   <a href="#app.routers">app.routers</a>
  &#8226;   <a href="#app.routers.annotations">app.routers.annotations</a>
  &#8226;   <a href="#app.routers.events">app.routers.events</a>
+ &#8226;   <a href="#app.routers.external">app.routers.external</a>
  &#8226;   <a href="#app.routers.folders">app.routers.folders</a>
  &#8226;   <a href="#app.routers.fs">app.routers.fs</a>
  &#8226;   <a href="#app.routers.health">app.routers.health</a>
@@ -4698,6 +4703,7 @@ imports:
  &#8226;   <a href="#app.routers.tags">app.routers.tags</a>
  &#8226;   <a href="#app.routers.videos">app.routers.videos</a>
  &#8226;   <a href="#app.services.events">app.services.events</a>
+ &#8226;   <a href="#app.services.external_player">app.services.external_player</a>
  &#8226;   <a href="#app.services.preview">app.services.preview</a>
  &#8226;   <a href="#app.services.queue">app.services.queue</a>
  &#8226;   <a href="#app.services.scanner">app.services.scanner</a>
@@ -4731,6 +4737,7 @@ imports:
     <a href="#app">app</a>
  &#8226;   <a href="#app.routers.annotations">app.routers.annotations</a>
  &#8226;   <a href="#app.routers.events">app.routers.events</a>
+ &#8226;   <a href="#app.routers.external">app.routers.external</a>
  &#8226;   <a href="#app.routers.folders">app.routers.folders</a>
  &#8226;   <a href="#app.routers.fs">app.routers.fs</a>
  &#8226;   <a href="#app.routers.health">app.routers.health</a>
@@ -4745,6 +4752,7 @@ imported by:
     <a href="#app.main">app.main</a>
  &#8226;   <a href="#app.routers.annotations">app.routers.annotations</a>
  &#8226;   <a href="#app.routers.events">app.routers.events</a>
+ &#8226;   <a href="#app.routers.external">app.routers.external</a>
  &#8226;   <a href="#app.routers.folders">app.routers.folders</a>
  &#8226;   <a href="#app.routers.fs">app.routers.fs</a>
  &#8226;   <a href="#app.routers.health">app.routers.health</a>
@@ -4792,6 +4800,35 @@ imports:
  &#8226;   <a href="#fastapi">fastapi</a>
  &#8226;   <a href="#fastapi.responses">fastapi.responses</a>
  &#8226;   <a href="#json">json</a>
+
+  </div>
+  <div class="import">
+imported by:
+    <a href="#app.main">app.main</a>
+ &#8226;   <a href="#app.routers">app.routers</a>
+
+  </div>
+
+</div>
+
+<div class="node">
+  <a name="app.routers.external"></a>
+  <a target="code" href="/build/backend/app/routers/external.py" type="text/plain"><tt>app.routers.external</tt></a>
+<span class="moduletype">SourceModule</span>  <div class="import">
+imports:
+    <a href="#__future__">__future__</a>
+ &#8226;   <a href="#app.deps">app.deps</a>
+ &#8226;   <a href="#app.routers">app.routers</a>
+ &#8226;   <a href="#app.services">app.services</a>
+ &#8226;   <a href="#app.services.annotations_service">app.services.annotations_service</a>
+ &#8226;   <a href="#app.services.external_player">app.services.external_player</a>
+ &#8226;   <a href="#app.services.library_service">app.services.library_service</a>
+ &#8226;   <a href="#app.services.settings_service">app.services.settings_service</a>
+ &#8226;   <a href="#app.services.tags_service">app.services.tags_service</a>
+ &#8226;   <a href="#fastapi">fastapi</a>
+ &#8226;   <a href="#fastapi.responses">fastapi.responses</a>
+ &#8226;   <a href="#sqlite3">sqlite3</a>
+ &#8226;   <a href="#typing">typing</a>
 
   </div>
   <div class="import">
@@ -4994,6 +5031,7 @@ imports:
   <div class="import">
 imported by:
     <a href="#app.routers.annotations">app.routers.annotations</a>
+ &#8226;   <a href="#app.routers.external">app.routers.external</a>
  &#8226;   <a href="#app.routers.search">app.routers.search</a>
  &#8226;   <a href="#app.routers.settings">app.routers.settings</a>
  &#8226;   <a href="#app.routers.tags">app.routers.tags</a>
@@ -5001,6 +5039,7 @@ imported by:
  &#8226;   <a href="#app.services">app.services</a>
  &#8226;   <a href="#app.services.annotations_service">app.services.annotations_service</a>
  &#8226;   <a href="#app.services.events">app.services.events</a>
+ &#8226;   <a href="#app.services.external_player">app.services.external_player</a>
  &#8226;   <a href="#app.services.library_service">app.services.library_service</a>
  &#8226;   <a href="#app.services.media_info">app.services.media_info</a>
  &#8226;   <a href="#app.services.preview">app.services.preview</a>
@@ -5036,6 +5075,7 @@ imports:
   <div class="import">
 imported by:
     <a href="#app.routers.annotations">app.routers.annotations</a>
+ &#8226;   <a href="#app.routers.external">app.routers.external</a>
  &#8226;   <a href="#app.services">app.services</a>
 
   </div>
@@ -5060,10 +5100,43 @@ imports:
   <div class="import">
 imported by:
     <a href="#app.main">app.main</a>
+ &#8226;   <a href="#app.services.external_player">app.services.external_player</a>
  &#8226;   <a href="#app.services.preview">app.services.preview</a>
  &#8226;   <a href="#app.services.queue">app.services.queue</a>
  &#8226;   <a href="#app.services.scanner">app.services.scanner</a>
  &#8226;   <a href="#app.services.watcher">app.services.watcher</a>
+
+  </div>
+
+</div>
+
+<div class="node">
+  <a name="app.services.external_player"></a>
+  <a target="code" href="/build/backend/app/services/external_player.py" type="text/plain"><tt>app.services.external_player</tt></a>
+<span class="moduletype">SourceModule</span>  <div class="import">
+imports:
+    <a href="#__future__">__future__</a>
+ &#8226;   <a href="#app.config">app.config</a>
+ &#8226;   <a href="#app.services">app.services</a>
+ &#8226;   <a href="#app.services.events">app.services.events</a>
+ &#8226;   <a href="#json">json</a>
+ &#8226;   <a href="#logging">logging</a>
+ &#8226;   <a href="#os">os</a>
+ &#8226;   <a href="#pathlib">pathlib</a>
+ &#8226;   <a href="#shlex">shlex</a>
+ &#8226;   <a href="#shutil">shutil</a>
+ &#8226;   <a href="#socket">socket</a>
+ &#8226;   <a href="#subprocess">subprocess</a>
+ &#8226;   <a href="#threading">threading</a>
+ &#8226;   <a href="#time">time</a>
+ &#8226;   <a href="#typing">typing</a>
+ &#8226;   <a href="#uuid">uuid</a>
+
+  </div>
+  <div class="import">
+imported by:
+    <a href="#app.main">app.main</a>
+ &#8226;   <a href="#app.routers.external">app.routers.external</a>
 
   </div>
 
@@ -5082,7 +5155,8 @@ imports:
   </div>
   <div class="import">
 imported by:
-    <a href="#app.routers.videos">app.routers.videos</a>
+    <a href="#app.routers.external">app.routers.external</a>
+ &#8226;   <a href="#app.routers.videos">app.routers.videos</a>
  &#8226;   <a href="#app.services">app.services</a>
 
   </div>
@@ -5260,7 +5334,8 @@ imports:
   </div>
   <div class="import">
 imported by:
-    <a href="#app.routers.settings">app.routers.settings</a>
+    <a href="#app.routers.external">app.routers.external</a>
+ &#8226;   <a href="#app.routers.settings">app.routers.settings</a>
  &#8226;   <a href="#app.services">app.services</a>
 
   </div>
@@ -5302,7 +5377,8 @@ imports:
   </div>
   <div class="import">
 imported by:
-    <a href="#app.routers.tags">app.routers.tags</a>
+    <a href="#app.routers.external">app.routers.external</a>
+ &#8226;   <a href="#app.routers.tags">app.routers.tags</a>
  &#8226;   <a href="#app.services">app.services</a>
  &#8226;   <a href="#app.services.annotations_service">app.services.annotations_service</a>
  &#8226;   <a href="#app.services.search_service">app.services.search_service</a>
@@ -14510,6 +14586,7 @@ imported by:
  &#8226;   <a href="#app.main">app.main</a>
  &#8226;   <a href="#app.routers.annotations">app.routers.annotations</a>
  &#8226;   <a href="#app.routers.events">app.routers.events</a>
+ &#8226;   <a href="#app.routers.external">app.routers.external</a>
  &#8226;   <a href="#app.routers.folders">app.routers.folders</a>
  &#8226;   <a href="#app.routers.fs">app.routers.fs</a>
  &#8226;   <a href="#app.routers.health">app.routers.health</a>
@@ -15249,6 +15326,7 @@ imported by:
     <a href="#app.main">app.main</a>
  &#8226;   <a href="#app.routers.annotations">app.routers.annotations</a>
  &#8226;   <a href="#app.routers.events">app.routers.events</a>
+ &#8226;   <a href="#app.routers.external">app.routers.external</a>
  &#8226;   <a href="#app.routers.folders">app.routers.folders</a>
  &#8226;   <a href="#app.routers.fs">app.routers.fs</a>
  &#8226;   <a href="#app.routers.health">app.routers.health</a>
@@ -27807,6 +27885,7 @@ imports:
   <div class="import">
 imported by:
     <a href="#app.routers.events">app.routers.events</a>
+ &#8226;   <a href="#app.services.external_player">app.services.external_player</a>
  &#8226;   <a href="#app.services.media_info">app.services.media_info</a>
  &#8226;   <a href="#app.services.probe">app.services.probe</a>
  &#8226;   <a href="#app.services.queue">app.services.queue</a>
@@ -28064,6 +28143,7 @@ imported by:
  &#8226;   <a href="#app.db">app.db</a>
  &#8226;   <a href="#app.main">app.main</a>
  &#8226;   <a href="#app.services.events">app.services.events</a>
+ &#8226;   <a href="#app.services.external_player">app.services.external_player</a>
  &#8226;   <a href="#app.services.preview">app.services.preview</a>
  &#8226;   <a href="#app.services.queue">app.services.queue</a>
  &#8226;   <a href="#app.services.scanner">app.services.scanner</a>
@@ -37244,6 +37324,7 @@ imported by:
  &#8226;   <a href="#anyio.to_process">anyio.to_process</a>
  &#8226;   <a href="#app.config">app.config</a>
  &#8226;   <a href="#app.main">app.main</a>
+ &#8226;   <a href="#app.services.external_player">app.services.external_player</a>
  &#8226;   <a href="#app.services.preview">app.services.preview</a>
  &#8226;   <a href="#app.services.scanner">app.services.scanner</a>
  &#8226;   <a href="#app.services.thumbnail">app.services.thumbnail</a>
@@ -37667,6 +37748,7 @@ imported by:
  &#8226;   <a href="#app.routers.folders">app.routers.folders</a>
  &#8226;   <a href="#app.routers.fs">app.routers.fs</a>
  &#8226;   <a href="#app.routers.videos">app.routers.videos</a>
+ &#8226;   <a href="#app.services.external_player">app.services.external_player</a>
  &#8226;   <a href="#app.services.media_info">app.services.media_info</a>
  &#8226;   <a href="#app.services.preview">app.services.preview</a>
  &#8226;   <a href="#app.services.probe">app.services.probe</a>
@@ -42733,7 +42815,8 @@ imports:
   </div>
   <div class="import">
 imported by:
-    <a href="#click._termui_impl">click._termui_impl</a>
+    <a href="#app.services.external_player">app.services.external_player</a>
+ &#8226;   <a href="#click._termui_impl">click._termui_impl</a>
  &#8226;   <a href="#click.shell_completion">click.shell_completion</a>
  &#8226;   <a href="#huggingface_hub.cli._cli_utils">huggingface_hub.cli._cli_utils</a>
  &#8226;   <a href="#huggingface_hub.cli.inference_endpoints">huggingface_hub.cli.inference_endpoints</a>
@@ -42774,6 +42857,7 @@ imports:
   <div class="import">
 imported by:
     <a href="#app.config">app.config</a>
+ &#8226;   <a href="#app.services.external_player">app.services.external_player</a>
  &#8226;   <a href="#app.services.preview">app.services.preview</a>
  &#8226;   <a href="#argparse">argparse</a>
  &#8226;   <a href="#av.datasets">av.datasets</a>
@@ -42961,6 +43045,7 @@ imported by:
  &#8226;   <a href="#anyio._core._sockets">anyio._core._sockets</a>
  &#8226;   <a href="#anyio.abc._eventloop">anyio.abc._eventloop</a>
  &#8226;   <a href="#anyio.abc._sockets">anyio.abc._sockets</a>
+ &#8226;   <a href="#app.services.external_player">app.services.external_player</a>
  &#8226;   <a href="#asyncio.base_events">asyncio.base_events</a>
  &#8226;   <a href="#asyncio.events">asyncio.events</a>
  &#8226;   <a href="#asyncio.proactor_events">asyncio.proactor_events</a>
@@ -43055,6 +43140,7 @@ imported by:
     <a href="#app.db">app.db</a>
  &#8226;   <a href="#app.deps">app.deps</a>
  &#8226;   <a href="#app.routers.annotations">app.routers.annotations</a>
+ &#8226;   <a href="#app.routers.external">app.routers.external</a>
  &#8226;   <a href="#app.routers.folders">app.routers.folders</a>
  &#8226;   <a href="#app.routers.fs">app.routers.fs</a>
  &#8226;   <a href="#app.routers.health">app.routers.health</a>
@@ -44179,6 +44265,7 @@ imported by:
     <a href="#_aix_support">_aix_support</a>
  &#8226;   <a href="#anyio._core._subprocesses">anyio._core._subprocesses</a>
  &#8226;   <a href="#anyio.to_process">anyio.to_process</a>
+ &#8226;   <a href="#app.services.external_player">app.services.external_player</a>
  &#8226;   <a href="#app.services.media_info">app.services.media_info</a>
  &#8226;   <a href="#app.services.preview">app.services.preview</a>
  &#8226;   <a href="#app.services.probe">app.services.probe</a>
@@ -44765,6 +44852,7 @@ imported by:
  &#8226;   <a href="#anyio._core._asyncio_selector_thread">anyio._core._asyncio_selector_thread</a>
  &#8226;   <a href="#anyio._core._eventloop">anyio._core._eventloop</a>
  &#8226;   <a href="#anyio.from_thread">anyio.from_thread</a>
+ &#8226;   <a href="#app.services.external_player">app.services.external_player</a>
  &#8226;   <a href="#app.services.preview">app.services.preview</a>
  &#8226;   <a href="#app.services.queue">app.services.queue</a>
  &#8226;   <a href="#app.services.watcher">app.services.watcher</a>
@@ -44882,6 +44970,7 @@ imports:
 imported by:
     <a href="#_datetime">_datetime</a>
  &#8226;   <a href="#_strptime">_strptime</a>
+ &#8226;   <a href="#app.services.external_player">app.services.external_player</a>
  &#8226;   <a href="#app.services.preview">app.services.preview</a>
  &#8226;   <a href="#app.services.queue">app.services.queue</a>
  &#8226;   <a href="#app.services.search_service">app.services.search_service</a>
@@ -46406,8 +46495,10 @@ imported by:
  &#8226;   <a href="#anyio.to_process">anyio.to_process</a>
  &#8226;   <a href="#anyio.to_thread">anyio.to_thread</a>
  &#8226;   <a href="#app.deps">app.deps</a>
+ &#8226;   <a href="#app.routers.external">app.routers.external</a>
  &#8226;   <a href="#app.services.annotations_service">app.services.annotations_service</a>
  &#8226;   <a href="#app.services.events">app.services.events</a>
+ &#8226;   <a href="#app.services.external_player">app.services.external_player</a>
  &#8226;   <a href="#app.services.library_service">app.services.library_service</a>
  &#8226;   <a href="#app.services.preview">app.services.preview</a>
  &#8226;   <a href="#app.services.queue">app.services.queue</a>
@@ -47686,7 +47777,8 @@ imports:
   </div>
   <div class="import">
 imported by:
-    <a href="#app.services.scanner">app.services.scanner</a>
+    <a href="#app.services.external_player">app.services.external_player</a>
+ &#8226;   <a href="#app.services.scanner">app.services.scanner</a>
  &#8226;   <a href="#av">av</a>
  &#8226;   <a href="#click.types">click.types</a>
  &#8226;   <a href="#fastapi.encoders">fastapi.encoders</a>

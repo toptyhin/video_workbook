@@ -46,11 +46,11 @@ async function waitForStatus(title: string, statuses: string[], timeout = 180_00
 }
 
 test('библиотека загружается и показывает файлы', async ({ page }) => {
-  await waitForVideos(3);
+  await waitForVideos(4);
   await page.goto('/');
   await expect(page.locator('.vl-toolbar')).toBeVisible();
   await expect(page.locator('.vl-table')).toBeVisible();
-  await expect(page.locator('.vl-table tbody tr')).toHaveCount(3, { timeout: 30_000 });
+  await expect(page.locator('.vl-table tbody tr')).toHaveCount(4, { timeout: 30_000 });
   await expect(page.locator('.vl-table__title', { hasText: 'lesson-01.webm' })).toBeVisible();
 });
 
@@ -62,6 +62,23 @@ test('открытие видео и панель таймингов с тран
   await row.dblclick();
   await expect(page.locator('video')).toBeVisible();
   await expect(page.locator('.vl-segment-row').first()).toBeVisible({ timeout: 20_000 });
+});
+
+test('несовместимый формат предлагает внешний плеер (CTA + диалог)', async ({ page }) => {
+  await page.goto('/');
+  const row = page.locator('.vl-table tbody tr', { hasText: 'lesson-04-unsupported.mkv' });
+  await expect(row).toBeVisible({ timeout: 30_000 });
+  await row.dblclick();
+  const cta = page.locator('.vl-player__overlay--external');
+  await expect(cta).toBeVisible({ timeout: 20_000 });
+  await expect(cta).toContainText('Браузер не декодирует');
+  await cta.getByRole('button', { name: 'Смотреть во внешнем плеере' }).click();
+  const dialog = page.getByRole('dialog');
+  await expect(dialog).toBeVisible();
+  await expect(dialog.locator('#vl-launch-player')).toBeVisible();
+  await expect(dialog.getByRole('button', { name: 'Отмена' })).toBeVisible();
+  await dialog.getByRole('button', { name: 'Отмена' }).click();
+  await expect(dialog).toBeHidden();
 });
 
 test('высоту панели предпросмотра можно менять', async ({ page }) => {

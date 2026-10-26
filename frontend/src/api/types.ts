@@ -76,6 +76,44 @@ export interface PlaybackInfo {
   detail: string | null;
 }
 
+export interface ExternalPlayer {
+  id: 'mpv' | 'vlc' | 'system';
+  label: string;
+  path: string | null;
+  available: boolean;
+  sync: boolean;
+}
+
+export interface ExternalPlayersResponse {
+  items: ExternalPlayer[];
+  configured: string;
+  policy: 'ask' | 'always' | 'never';
+  pass_marks: boolean;
+}
+
+export interface ExternalSession {
+  session_id: string;
+  player: 'mpv' | 'vlc' | 'system';
+  player_label: string;
+  sync: boolean;
+  video_id: number;
+  title: string | null;
+  start_ms: number;
+  position_ms: number;
+  duration_ms: number;
+  paused: boolean;
+  volume: number;
+  active: boolean;
+  ended: boolean;
+  chapters: boolean;
+  subtitles: boolean;
+}
+
+export interface ExternalStatus {
+  active: boolean;
+  session: ExternalSession | null;
+}
+
 export interface Segment {
   id: number;
   video_id: number;
@@ -204,7 +242,7 @@ export interface ScanResponse {
   root: string;
 }
 
-export type SettingsValues = Record<string, string | number>;
+export type SettingsValues = Record<string, string | number | boolean>;
 
 export interface AppInfo {
   version: string;

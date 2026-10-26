@@ -9,8 +9,10 @@ import { STORAGE_KEYS } from '../../lib/constants';
 import { t } from '../../lib/i18n';
 import { readStorage, writeStorage } from '../../lib/storage';
 import { clamp } from '../../lib/time';
+import { useExternalStore } from '../../state/externalStore';
 import { usePlayerStore } from '../../state/playerStore';
 import { useUIStore } from '../../state/uiStore';
+import { ExternalRemote } from '../external/ExternalRemote';
 import { VideoControls } from './VideoControls';
 import './VideoPlayer.css';
 
@@ -30,6 +32,11 @@ export interface VideoPlayerProps {
 
 type VideoErrorKind = 'missing' | 'unsupported';
 
+interface ExternalCta {
+  detail: string | null;
+  mode: string;
+}
+
 const POLL_INTERVAL_MS = 1200;
 
 function errorText(error: unknown): string {
@@ -48,6 +55,10 @@ export function VideoPlayer({ videoId, video = null, onShowInFolder, className }
   const [previewError, setPreviewError] = useState<string | null>(null);
   const [src, setSrc] = useState<string | undefined>(undefined);
   const [retryTick, setRetryTick] = useState(0);
+  const [externalCta, setExternalCta] = useState<ExternalCta | null>(null);
+  const transcodeChosen = useRef(false);
+  const autoLaunched = useRef<number | null>(null);
+  const wasExternal = useRef(false);
 
   const loading = usePlayerStore((state) => state.loading);
   const playing = usePlayerStore((state) => state.playing);
@@ -56,7 +67,8 @@ export function VideoPlayer({ videoId, video = null, onShowInFolder, className }
   const storeStep = usePlayerStore((state) => state.step);
   const storeToggle = usePlayerStore((state) => state.toggle);
 
-  usePlaybackClock(videoRef);
+  const externalActive = useExternalStore((state) => state.isActiveFor(videoId));
+  usePlaybackClock(videoRef, !externalActive);
   // Глобальные клавиши плеера/меток (Space, ←/→, J/K/L, Ctrl+M, Delete, Ctrl+Z…).
   useHotkeys();
 
@@ -65,6 +77,8 @@ export function VideoPlayer({ videoId, video = null, onShowInFolder, className }
     setPreviewError(null);
     setPlayback(null);
     setSrc(undefined);
+    setExternalCta(null);
+    transcodeChosen.current = false;
     if (pollTimer.current) {
       window.clearTimeout(pollTimer.current);
       pollTimer.current = undefined;
@@ -81,12 +95,25 @@ export function VideoPlayer({ videoId, video = null, onShowInFolder, className }
     const applyInfo = (info: PlaybackInfo): void => {
       if (cancelled) return;
       setPlayback(info);
+      const external = useExternalStore.getState();
+      if (external.isActiveFor(videoId)) return;
       if (info.mode === 'direct') {
         setSrc(mediaUrl(videoId, 'stream'));
         return;
       }
       if (info.mode === 'unsupported' || info.state === 'error') {
         setPreviewError(info.error ?? t('player.unsupported'));
+        return;
+      }
+      if (external.policy !== 'never' && !transcodeChosen.current) {
+        const configured = external.players.find((item) => item.id === external.configured);
+        if (external.policy === 'always' && configured?.available && autoLaunched.current !== videoId) {
+          autoLaunched.current = videoId;
+          external.openLaunch(videoId, 0);
+          void external.launch({ startMs: 0 });
+          return;
+        }
+        setExternalCta({ detail: info.detail, mode: info.mode });
         return;
       }
       if (info.state === 'ready') {
@@ -135,6 +162,18 @@ export function VideoPlayer({ videoId, video = null, onShowInFolder, className }
       }
     };
   }, [videoId, retryTick]);
+
+  // Внешний плеер закрылся — возвращаемся к обычному превью
+  useEffect(() => {
+    if (externalActive) {
+      wasExternal.current = true;
+      return;
+    }
+    if (wasExternal.current && videoId !== null) {
+      wasExternal.current = false;
+      setRetryTick((value) => value + 1);
+    }
+  }, [externalActive, videoId]);
 
   useEffect(() => {
     const element = videoRef.current;
@@ -211,6 +250,14 @@ export function VideoPlayer({ videoId, video = null, onShowInFolder, className }
   const percent = Math.round((playback?.progress ?? 0) * 100);
   const previewFailed = previewError ?? (playback?.state === 'error' ? playback.error : null);
 
+  if (externalActive && videoId !== null) {
+    return (
+      <div ref={containerRef} className={`vl-player vl-player--external${className ? ` ${className}` : ''}`}>
+        <ExternalRemote videoId={videoId} title={video?.title ?? null} />
+      </div>
+    );
+  }
+
   return (
     <div ref={containerRef} className={`vl-player${className ? ` ${className}` : ''}`}>
       <div className="vl-player__stage">
@@ -254,6 +301,38 @@ export function VideoPlayer({ videoId, video = null, onShowInFolder, className }
             </div>
           </div>
         )}
+        {videoId !== null && externalCta && !preparing && !previewFailed && !videoError && (
+          <div className="vl-player__overlay vl-player__overlay--external" role="alert">
+            <p className="vl-player__overlay-text">{t('external.ctaTitle')}</p>
+            <p className="vl-player__overlay-hint">
+              {t('external.ctaHint', { detail: externalCta.detail ?? externalCta.mode })}
+            </p>
+            <div className="vl-player__overlay-actions">
+              <button
+                type="button"
+                className="primary"
+                onClick={() => useExternalStore.getState().openLaunch(videoId as number, positionMs)}
+              >
+                {t('external.openTitle')}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  transcodeChosen.current = true;
+                  setExternalCta(null);
+                  setRetryTick((value) => value + 1);
+                }}
+              >
+                {t('external.convert')}
+              </button>
+              {(video?.path || onShowInFolder) && (
+                <button type="button" onClick={handleReveal}>
+                  {t('player.showInFolder')}
+                </button>
+              )}
+            </div>
+          </div>
+        )}
         {videoId !== null && !preparing && !previewFailed && videoError && (
           <div className="vl-player__overlay vl-player__overlay--error" role="alert">
             <p className="vl-player__overlay-text">
@@ -265,6 +344,16 @@ export function VideoPlayer({ videoId, video = null, onShowInFolder, className }
               </button>
             )}
           </div>
+        )}
+        {videoId !== null && !externalCta && !videoError && (
+          <button
+            type="button"
+            className="vl-player__external-button"
+            title={t('external.openTitle')}
+            onClick={() => useExternalStore.getState().openLaunch(videoId as number, positionMs)}
+          >
+            {t('external.open')}
+          </button>
         )}
         {videoId !== null && loading && !videoError && !preparing && !previewFailed && !src && (
           <div className="vl-player__overlay">{t('timings.loading')}</div>

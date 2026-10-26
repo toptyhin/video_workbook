@@ -17,6 +17,7 @@ const EVENT_TYPES = [
   'tags.changed',
   'annotations.changed',
   'settings.changed',
+  'external.state',
   'backend.error',
 ] as const;
 

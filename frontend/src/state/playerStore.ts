@@ -3,6 +3,7 @@ import { create } from 'zustand';
 import { api } from '../api/client';
 import type { Annotation, Segment } from '../api/types';
 import { clampMs } from '../lib/timelineGeometry';
+import { useExternalStore } from './externalStore';
 
 /**
  * Состояние плеера и таймлайна текущего видео.
@@ -204,6 +205,14 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   seek: (ms) => {
     const duration = effectiveDuration();
     const target = clampMs(ms, duration > 0 ? duration : Math.max(0, ms));
+    if (useExternalStore.getState().isActiveFor(get().videoId)) {
+      void useExternalStore.getState().seek(target);
+      set((state) => ({
+        positionMs: target,
+        activeSegmentId: findActiveSegment(state.segments, target),
+      }));
+      return;
+    }
     if (videoElement) {
       try {
         videoElement.currentTime = target / 1000;
@@ -222,6 +231,11 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   },
 
   play: () => {
+    if (useExternalStore.getState().isActiveFor(get().videoId)) {
+      void useExternalStore.getState().command('play');
+      set({ playing: true });
+      return;
+    }
     const element = videoElement;
     if (!element) {
       set({ playing: true });
@@ -235,6 +249,11 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   },
 
   pause: () => {
+    if (useExternalStore.getState().isActiveFor(get().videoId)) {
+      void useExternalStore.getState().command('pause');
+      set({ playing: false });
+      return;
+    }
     videoElement?.pause();
     set({ playing: false });
   },

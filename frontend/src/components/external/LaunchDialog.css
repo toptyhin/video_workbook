@@ -1,0 +1,79 @@
+.vl-launch-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 55;
+  display: grid;
+  place-items: center;
+  background: rgba(8, 12, 18, 0.55);
+  padding: 20px;
+}
+
+.vl-launch {
+  width: min(520px, 100%);
+  max-height: 90vh;
+  overflow: auto;
+  background: var(--vl-panel);
+  color: var(--vl-text);
+  border: 1px solid var(--vl-border);
+  border-radius: var(--vl-radius);
+  box-shadow: var(--vl-shadow);
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.vl-launch__title {
+  margin: 0;
+  font-size: 17px;
+}
+
+.vl-launch__field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.vl-launch__field label,
+.vl-launch__legend {
+  font-size: 12px;
+  color: var(--vl-text-muted);
+}
+
+.vl-launch__group {
+  border: 1px solid var(--vl-border);
+  border-radius: var(--vl-radius-sm);
+  padding: 8px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.vl-launch__radio,
+.vl-launch__check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.vl-launch__mark {
+  margin-top: 4px;
+}
+
+.vl-launch__error {
+  margin: 0;
+  color: var(--vl-danger);
+}
+
+.vl-launch__hint {
+  margin: 0;
+  font-size: 12px;
+  color: var(--vl-text-muted);
+}
+
+.vl-launch__footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 4px;
+}

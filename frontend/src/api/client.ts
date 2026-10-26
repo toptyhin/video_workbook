@@ -6,6 +6,8 @@ import type {
   AnnotationPatch,
   BackendInfo,
   Folder,
+  ExternalPlayersResponse,
+  ExternalStatus,
   FolderListResponse,
   FsListResponse,
   QueueState,
@@ -147,6 +149,18 @@ export const api = {
   playback: (videoId: number) => request<PlaybackInfo>(`/api/videos/${videoId}/playback`),
   preparePreview: (videoId: number) =>
     request<PlaybackInfo>(`/api/videos/${videoId}/prepare-preview`, { method: 'POST' }),
+  externalPlayers: () => request<ExternalPlayersResponse>('/api/external/players'),
+  externalStatus: () => request<ExternalStatus>('/api/external/status'),
+  externalLaunch: (payload: {
+    video_id: number;
+    start_ms?: number;
+    player?: string;
+    pass_marks?: boolean;
+    player_path?: string;
+  }) => request<ExternalStatus>('/api/external/launch', { method: 'POST', body: payload }),
+  externalCommand: (action: string, value?: unknown) =>
+    request<ExternalStatus>('/api/external/command', { method: 'POST', body: { action, value } }),
+  externalStop: () => request<ExternalStatus>('/api/external/stop', { method: 'POST' }),
   clearPreviewCache: () =>
     request<{ removed_bytes: number; removed_files: number }>('/api/maintenance/clear-preview-cache', {
       method: 'POST',

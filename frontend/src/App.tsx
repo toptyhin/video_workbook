@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { vl } from './api/electron';
 import { AnnotationEditor } from './components/annotations/AnnotationEditor';
 import { AnnotationList } from './components/annotations/AnnotationList';
+import { LaunchDialog } from './components/external/LaunchDialog';
 import { HotkeysDialog } from './components/dialogs/HotkeysDialog';
 import { SettingsDialog } from './components/dialogs/SettingsDialog';
 import { FileList } from './components/FileList';
@@ -15,6 +16,7 @@ import { ToastHost } from './components/ui/Toast';
 import { useSSE } from './hooks/useSSE';
 import { t } from './lib/i18n';
 import { useAnnotationsStore } from './state/annotationsStore';
+import { useExternalStore } from './state/externalStore';
 import { useLibraryStore } from './state/libraryStore';
 import { usePlayerStore } from './state/playerStore';
 import { useTagsStore } from './state/tagsStore';
@@ -122,7 +124,36 @@ export function App() {
     if (!backendReady) return;
     void loadVideos();
     void useTagsStore.getState().load();
+    void useExternalStore.getState().init();
   }, [backendReady, loadVideos]);
+
+  // Позиция/состояние внешнего плеера -> playerStore (таймлайн, тайминги, метки)
+  useEffect(
+    () =>
+      useExternalStore.subscribe((state) => {
+        const session = state.status.active ? state.status.session : null;
+        const player = usePlayerStore.getState();
+        if (!session) {
+          if (player.playing) player.setPlaying(false);
+          return;
+        }
+        if (player.videoId !== session.video_id) return;
+        player.setPosition(session.position_ms);
+        if (session.duration_ms > 0) player.setDuration(session.duration_ms);
+        player.setPlaying(!session.paused);
+      }),
+    [],
+  );
+
+  // Переключение видео закрывает внешний плеер другого файла
+  useEffect(() => {
+    const external = useExternalStore.getState();
+    const session = external.status.active ? external.status.session : null;
+    if (!session) return;
+    if (selectedVideoId === null || session.video_id !== selectedVideoId) {
+      void external.stop();
+    }
+  }, [selectedVideoId]);
 
   // Сброс состояния при закрытии видео (загрузку делают VideoPlayer/TimingPanel)
   useEffect(() => {
@@ -177,6 +208,9 @@ export function App() {
         void useLibraryStore.getState().refresh();
         break;
       }
+      case 'external.state':
+        void useExternalStore.getState().refreshStatus();
+        break;
       case 'settings.changed':
         break;
       default:
@@ -206,6 +240,14 @@ export function App() {
           const paths = await vl().openFiles();
           if (paths.length > 0) await scanPaths(paths);
         })();
+        return;
+      }
+      if ((event.ctrlKey || event.metaKey) && event.code === 'Enter') {
+        event.preventDefault();
+        const videoId = useUIStore.getState().selectedVideoId;
+        if (videoId !== null) {
+          useExternalStore.getState().openLaunch(videoId, usePlayerStore.getState().positionMs);
+        }
         return;
       }
       if ((event.ctrlKey || event.metaKey) && event.code === 'KeyM') {
@@ -301,6 +343,7 @@ export function App() {
         </main>
       </div>
       <AnnotationEditor />
+      <LaunchDialog />
       <SettingsDialog />
       <HotkeysDialog />
       <ToastHost />

@@ -52,6 +52,17 @@ Chromium не декодирует HEVC/10-bit и не все контейнер
 (Range-стриминг готового MP4), `POST /api/maintenance/clear-preview-cache`.
 Кэш: `$VL_DATA_DIR/cache/preview/`, ключ `{id}_{mtime}_{mode}`; старая версия файла удаляется при пересборке.
 
+## Внешний плеер (V3)
+
+`services/external_player.py` запускает mpv/VLC/xdg-open и синхронизирует mpv через UNIX-сокет
+(`--input-ipc-server`): команды `observe_property` (time-pos/duration/pause/volume), `seek`, `cycle pause`,
+`set_property`. Состояние сессии отдаётся `GET /api/external/status` (опрос 600 мс) и SSE `external.state`.
+Метки передаются как главы (`--chapters-file`, OGM) и субтитры (`.ass`, цвет из `annotations.color`);
+для VLC — только `--start-time`/`--sub-file`; системный плеер — без синхронизации.
+Настройки: `external.player` (mpv/vlc/system), `external.player_path`, `external.policy` (ask/always/never),
+`external.pass_marks`. Для безопасности mpv запускается с `--no-config --load-scripts=no --ytdl=no`.
+Плеер стартует в отдельной сессии процесса и завершается при закрытии приложения.
+
 ## Поиск
 
 `segments_fts` и `annotations_fts` — FTS5 external content (`unicode61 remove_diacritics 2`), триггеры синхронизации.

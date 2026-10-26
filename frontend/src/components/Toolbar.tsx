@@ -3,7 +3,9 @@ import type { ChangeEvent } from 'react';
 import { vl } from '../api/electron';
 import type { SearchScope } from '../api/types';
 import { t } from '../lib/i18n';
+import { useExternalStore } from '../state/externalStore';
 import { useLibraryStore } from '../state/libraryStore';
+import { usePlayerStore } from '../state/playerStore';
 import { useSearchStore } from '../state/searchStore';
 import { useUIStore } from '../state/uiStore';
 import { ConfirmDialog } from './ui/ConfirmDialog';
@@ -19,6 +21,7 @@ const SCOPES: { value: SearchScope; labelKey: string }[] = [
 /** Верхняя панель: добавление/удаление файлов, поиск, настройки и «О клавишах». */
 export function Toolbar() {
   const selectedCount = useLibraryStore((state) => state.selectedIds.length);
+  const selectedVideoId = useUIStore((state) => state.selectedVideoId);
   const scanPaths = useLibraryStore((state) => state.scanPaths);
   const removeSelected = useLibraryStore((state) => state.removeSelected);
 
@@ -74,6 +77,19 @@ export function Toolbar() {
         title={t('toolbar.removeFromAnalysis')}
       >
         {t('toolbar.removeFromAnalysis')}
+      </button>
+
+      <button
+        type="button"
+        disabled={selectedVideoId === null}
+        title={t('external.openTitle')}
+        onClick={() =>
+          useExternalStore
+            .getState()
+            .openLaunch(selectedVideoId as number, usePlayerStore.getState().positionMs)
+        }
+      >
+        {t('external.open')}
       </button>
 
       <div className="vl-toolbar__search">

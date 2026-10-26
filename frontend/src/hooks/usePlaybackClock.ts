@@ -11,10 +11,10 @@ import { usePlayerStore } from '../state/playerStore';
 
 const THROTTLE_MS = 250;
 
-export function usePlaybackClock(videoRef: RefObject<HTMLVideoElement>): void {
+export function usePlaybackClock(videoRef: RefObject<HTMLVideoElement>, enabled = true): void {
   useEffect(() => {
     const element = videoRef.current;
-    if (!element) return;
+    if (!element || !enabled) return;
 
     const store = usePlayerStore.getState;
     let rafId = 0;
@@ -121,5 +121,5 @@ export function usePlaybackClock(videoRef: RefObject<HTMLVideoElement>): void {
       store().setPlaying(false);
       store().setVideoElement(null);
     };
-  }, [videoRef]);
+  }, [videoRef, enabled]);
 }

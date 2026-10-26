@@ -6,6 +6,7 @@ import type { AppInfo, Folder, SettingsValues } from '../../api/types';
 import { t } from '../../lib/i18n';
 import type { Theme } from '../../state/uiStore';
 import { useUIStore } from '../../state/uiStore';
+import { useExternalStore } from '../../state/externalStore';
 import { useTagsStore } from '../../state/tagsStore';
 import { ConfirmDialog } from '../ui/ConfirmDialog';
 import { Spinner } from '../ui/Spinner';
@@ -44,6 +45,8 @@ export function SettingsDialog() {
   const [values, setValues] = useState<SettingsValues>({});
   const [folders, setFolders] = useState<Folder[]>([]);
   const [clearingPreview, setClearingPreview] = useState(false);
+  const [playerPathDraft, setPlayerPathDraft] = useState('');
+  const externalPlayers = useExternalStore((state) => state.players);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -67,7 +70,9 @@ export function SettingsDialog() {
     try {
       const [settingsValues, folderResponse] = await Promise.all([api.getSettings(), api.folders()]);
       setValues(settingsValues);
+      setPlayerPathDraft(String(settingsValues['external.player_path'] ?? ''));
       setFolders(folderResponse.items);
+      void useExternalStore.getState().refreshPlayers();
       const modeValue = settingsValues['tags.multi_select_mode'];
       if (modeValue === 'union' || modeValue === 'intersection') syncMode(modeValue);
       const info = await vl().getAppInfo().catch(() => null);
@@ -348,6 +353,84 @@ export function SettingsDialog() {
                 >
                   {t('settings.clearModelCache')}
                 </button>
+              </section>
+
+              <section className="vl-settings__section">
+                <h3 className="vl-settings__section-title">{t('settings.externalSection')}</h3>
+                <label className="vl-settings__field">
+                  <span>{t('external.player')}</span>
+                  <select
+                    value={String(values['external.player'] ?? 'mpv')}
+                    disabled={busy}
+                    onChange={(event) =>
+                      void patch({ 'external.player': event.target.value }).then(() =>
+                        useExternalStore.getState().refreshPlayers(),
+                      )
+                    }
+                  >
+                    {externalPlayers.map((item) => (
+                      <option key={item.id} value={item.id} disabled={!item.available}>
+                        {item.label}
+                        {item.sync ? ' · sync' : ''}
+                        {item.available ? '' : ` — ${t('external.notAvailable')}`}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="vl-settings__field">
+                  <span>{t('external.policy')}</span>
+                  <select
+                    value={String(values['external.policy'] ?? 'ask')}
+                    disabled={busy}
+                    onChange={(event) =>
+                      void patch({ 'external.policy': event.target.value }).then(() =>
+                        useExternalStore.getState().refreshPlayers(),
+                      )
+                    }
+                  >
+                    <option value="ask">{t('external.policyAsk')}</option>
+                    <option value="always">{t('external.policyAlways')}</option>
+                    <option value="never">{t('external.policyNever')}</option>
+                  </select>
+                </label>
+                <label className="vl-settings__field">
+                  <span>{t('external.path')}</span>
+                  <input
+                    value={playerPathDraft}
+                    placeholder="/usr/bin/mpv"
+                    onChange={(event) => setPlayerPathDraft(event.target.value)}
+                    onBlur={() => {
+                      if (playerPathDraft !== String(values['external.player_path'] ?? '')) {
+                        void patch({ 'external.player_path': playerPathDraft });
+                      }
+                    }}
+                  />
+                </label>
+                <label className="vl-settings__check">
+                  <input
+                    type="checkbox"
+                    checked={Boolean(values['external.pass_marks'] ?? true)}
+                    disabled={busy}
+                    onChange={(event) =>
+                      void patch({ 'external.pass_marks': event.target.checked }).then(() =>
+                        useExternalStore.getState().refreshPlayers(),
+                      )
+                    }
+                  />
+                  {t('external.passMarks')}
+                </label>
+                <p className="vl-settings__hint">
+                  {externalPlayers
+                    .map(
+                      (item) =>
+                        `${item.label}: ${
+                          item.available
+                            ? `${t('external.available')} (${item.path})`
+                            : t('external.notAvailable')
+                        }`,
+                    )
+                    .join(' · ')}
+                </p>
               </section>
 
               <section className="vl-settings__section">

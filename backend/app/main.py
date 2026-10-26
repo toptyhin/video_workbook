@@ -14,8 +14,20 @@ from fastapi.staticfiles import StaticFiles
 
 from .config import Config, get_config
 from .db import connect, migrate
-from .routers import annotations, events, folders, fs, health, search, settings, tags, videos
+from .routers import (
+    annotations,
+    events,
+    external,
+    folders,
+    fs,
+    health,
+    search,
+    settings,
+    tags,
+    videos,
+)
 from .services.events import EventBus
+from .services.external_player import ExternalPlayerManager
 from .services.preview import PreviewManager
 from .services.queue import TranscriptionQueue
 from .services.scanner import Scanner
@@ -62,6 +74,7 @@ def create_app(config: Config | None = None) -> FastAPI:
         transcription_queue = TranscriptionQueue(cfg, bus)
         watcher = LibraryWatcher(cfg, bus)
         preview = PreviewManager(cfg, bus)
+        external_player = ExternalPlayerManager(cfg, bus)
         transcription_queue.start()
         watcher.start(roots)
         app.state.bus = bus
@@ -69,12 +82,14 @@ def create_app(config: Config | None = None) -> FastAPI:
         app.state.queue = transcription_queue
         app.state.watcher = watcher
         app.state.preview = preview
+        app.state.external = external_player
         try:
             yield
         finally:
             transcription_queue.stop()
             watcher.stop()
             preview.stop()
+            external_player.stop()
 
     app = FastAPI(
         title="VideoLessons",
@@ -107,6 +122,7 @@ def create_app(config: Config | None = None) -> FastAPI:
     app.include_router(tags.router)
     app.include_router(search.router)
     app.include_router(annotations.router)
+    app.include_router(external.router)
 
     _mount_frontend(app, cfg)
     return app
