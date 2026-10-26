@@ -31,7 +31,13 @@ bash scripts/fetch-model.sh tiny
 
 # полный dev-режим: backend :8765 + Vite :5173 + Electron
 bash scripts/dev.sh
+
+# только backend + Vite (без Electron; UI в браузере http://127.0.0.1:5173/)
+VL_NO_ELECTRON=1 bash scripts/dev.sh
 ```
+
+`dev.sh` ждёт готовности backend и Vite (до 60/90 с) и только потом запускает Electron;
+если Vite не поднялся — печатает его лог. Vite слушает `127.0.0.1:5173` (IPv4, не только localhost).
 
 Если GUI недоступен (headless/CI), используйте production-стек в браузере:
 

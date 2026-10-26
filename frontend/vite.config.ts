@@ -4,6 +4,9 @@ import react from '@vitejs/plugin-react';
 export default defineConfig({
   plugins: [react()],
   server: {
+    // Явно IPv4: Electron и dev.sh обращаются к 127.0.0.1 (Vite по умолчанию
+    // может слушать только ::1/localhost, что даёт ERR_CONNECTION_REFUSED).
+    host: '127.0.0.1',
     port: 5173,
     strictPort: true,
     proxy: {

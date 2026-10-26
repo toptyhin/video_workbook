@@ -34,9 +34,11 @@ export class BackendManager {
   }
 
   async start(): Promise<BackendInfo> {
-    const devUrl = process.env.VL_BACKEND_URL;
-    if (devUrl) {
-      this.info = { baseUrl: devUrl.replace(/\/$/, ''), token: process.env.VL_TOKEN ?? '' };
+    // В dev бэкенд запускает scripts/dev.sh, а SPA грузится с Vite; API идёт
+    // относительным путём через прокси Vite (same-origin, без CORS).
+    const externalBackend = process.env.VL_BACKEND_URL;
+    if (externalBackend) {
+      this.info = { baseUrl: '', token: process.env.VL_TOKEN ?? '' };
       this.opts.onStatus('ready');
       return this.info;
     }

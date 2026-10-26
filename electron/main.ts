@@ -102,8 +102,14 @@ function createWindow(baseUrl: string): void {
       }, 1500);
     });
   }
-  mainWindow.webContents.on('did-fail-load', (_event, code, description) => {
+  let loadAttempts = 0;
+  mainWindow.webContents.on('did-fail-load', (_event, code, description, _url, isMainFrame) => {
     logger.error(`Failed to load ${target}: ${code} ${description}`);
+    if (!devUrl || !isMainFrame || code !== -102 || loadAttempts >= 20) return;
+    loadAttempts += 1;
+    setTimeout(() => {
+      void mainWindow?.loadURL(target);
+    }, 500);
   });
   mainWindow.webContents.on('render-process-gone', (_event, details) => {
     logger.error(`Renderer gone: ${details.reason}`);
