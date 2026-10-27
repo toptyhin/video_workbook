@@ -6,6 +6,7 @@ import { t } from '../lib/i18n';
 import { useExternalStore } from '../state/externalStore';
 import { useLibraryStore } from '../state/libraryStore';
 import { usePlayerStore } from '../state/playerStore';
+import { useRecordStore } from '../state/recordStore';
 import { useSearchStore } from '../state/searchStore';
 import { useUIStore } from '../state/uiStore';
 import { ConfirmDialog } from './ui/ConfirmDialog';
@@ -31,6 +32,8 @@ export function Toolbar() {
   const setScope = useSearchStore((state) => state.setScope);
   const runSearch = useSearchStore((state) => state.runSearch);
   const clearSearch = useSearchStore((state) => state.clear);
+
+  const recordStatus = useRecordStore((state) => state.status);
 
   const setSettingsOpen = useUIStore((state) => state.setSettingsOpen);
   const setHotkeysOpen = useUIStore((state) => state.setHotkeysOpen);
@@ -90,6 +93,19 @@ export function Toolbar() {
         }
       >
         {t('external.open')}
+      </button>
+
+      <button
+        type="button"
+        className="vl-toolbar__record"
+        aria-label={
+          recordStatus === 'idle' ? t('recording.toolbarButton') : t('recording.toolbarBusy')
+        }
+        title={recordStatus === 'idle' ? t('recording.toolbarButton') : t('recording.toolbarBusy')}
+        disabled={recordStatus !== 'idle'}
+        onClick={() => useRecordStore.getState().openDialog()}
+      >
+        {t('recording.toolbarButton')}
       </button>
 
       <div className="vl-toolbar__search">

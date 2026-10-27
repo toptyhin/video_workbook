@@ -10,6 +10,8 @@ TOKEN = "test-token"
 def config(tmp_path, monkeypatch):
     monkeypatch.setenv("VL_DATA_DIR", str(tmp_path / "data"))
     monkeypatch.setenv("VL_TOKEN", TOKEN)
+    # детерминизм тестов: фоновый автоиндекс эмбеддингов не запускается сам
+    monkeypatch.setenv("VL_EMBED_AUTOINDEX", "0")
     from app.config import Config
 
     cfg = Config()

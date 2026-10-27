@@ -4,6 +4,11 @@
   "private": true,
   "description": "Local video-lesson library with offline transcription, tags and annotations",
   "main": "dist-electron/main.js",
+  "author": {
+    "name": "toptyhin",
+    "email": "konovalov.phone@gmail.com"
+  },
+  "homepage": "https://github.com/toptyhin",
   "scripts": {
     "build:electron": "node scripts/build-electron.mjs",
     "build:frontend": "npm --prefix frontend run build",
@@ -12,13 +17,23 @@
     "test": "bash scripts/test.sh",
     "test:frontend": "npm --prefix frontend run test",
     "typecheck": "npm --prefix frontend run typecheck",
-    "e2e": "playwright test"
+    "e2e": "playwright test",
+    "dist": "electron-builder --config packaging/electron-builder.yml --linux deb AppImage --publish never",
+    "dist:appimage": "electron-builder --config packaging/electron-builder.yml --linux AppImage --publish never",
+    "dist:dir": "electron-builder --config packaging/electron-builder.yml --dir --publish never"
   },
   "devDependencies": {
     "@playwright/test": "^1.49.0",
-    "electron": "^31.7.7",
-    "electron-builder": "^25.1.8",
+    "electron": "^45.0.0",
+    "electron-builder": "^26.18.0",
+    "electron-rebuild": "^3.2.9",
     "esbuild": "^0.24.2",
     "typescript": "^5.6.3"
+  },
+  "allowScripts": {
+    "electron@31.7.7": true,
+    "electron-winstaller@5.4.0": true,
+    "esbuild@0.24.2": true
+
   }
 }

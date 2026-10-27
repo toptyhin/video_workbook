@@ -103,8 +103,17 @@
   border-bottom: 1px solid var(--vl-border);
 }
 
+.vl-timing-panel__content {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: row;
+  min-width: 0;
+  min-height: 0;
+}
+
 .vl-timing-panel__body {
   flex: 1 1 auto;
+  min-width: 0;
   min-height: 0;
   overflow-y: auto;
   overflow-x: hidden;
@@ -132,6 +141,12 @@
 .vl-timing-panel__state-text {
   margin: 0;
   max-width: 260px;
+}
+
+.vl-timing-panel__state-hint {
+  margin: 0;
+  font-size: 11px;
+  color: var(--vl-text-muted);
 }
 
 .vl-timing-panel__progress {
@@ -170,4 +185,30 @@
   50% {
     opacity: 0.55;
   }
+}
+
+/* M14: режим саммари (уровни 1–4). */
+
+.vl-timing-panel__state--summary {
+  justify-content: flex-start;
+  padding-top: 28px;
+  height: auto;
+}
+
+.vl-timing-panel__summary-progress {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 10px;
+  background: var(--vl-bg-sunken);
+  border-bottom: 1px solid var(--vl-border);
+}
+
+.vl-timing-panel__summary-progress .vl-timing-panel__state-text {
+  max-width: none;
+  text-align: left;
+}
+
+.vl-timing-panel__rows--summary {
+  padding-top: 4px;
 }

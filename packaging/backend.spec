@@ -4,7 +4,11 @@ from PyInstaller.utils.hooks import collect_all
 
 BACKEND_DIR = os.path.abspath(os.path.join(SPECPATH, "..", "backend"))
 
-datas = [(os.path.join(BACKEND_DIR, "app", "migrations"), "app/migrations")]
+datas = [
+    (os.path.join(BACKEND_DIR, "app", "migrations"), "app/migrations"),
+    # M13: реестр моделей читается из bundle (app/model_manifest.json).
+    (os.path.join(BACKEND_DIR, "app", "model_manifest.json"), "app"),
+]
 binaries = []
 hiddenimports = [
     "uvicorn.logging",
@@ -12,9 +16,20 @@ hiddenimports = [
     "uvicorn.protocols.http.auto",
     "uvicorn.protocols.websockets.auto",
     "uvicorn.lifespan.on",
+    # M13: потоковая загрузка моделей (httpx напрямую, не только транзитивно).
+    "httpx",
 ]
 
-for package in ("faster_whisper", "ctranslate2", "tokenizers", "av", "huggingface_hub"):
+for package in (
+    "faster_whisper",
+    "ctranslate2",
+    "tokenizers",
+    "av",
+    "huggingface_hub",
+    # M12: семантический поиск (ONNX-эмбеддинги) — numpy/onnxruntime в поставке.
+    "onnxruntime",
+    "numpy",
+):
     try:
         pkg_datas, pkg_binaries, pkg_hidden = collect_all(package)
         datas += pkg_datas

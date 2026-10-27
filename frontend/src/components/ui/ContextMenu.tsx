@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { KeyboardEvent as ReactKeyboardEvent } from 'react';
 import { createPortal } from 'react-dom';
 import './ContextMenu.css';
@@ -6,6 +6,8 @@ import './ContextMenu.css';
 export interface ContextMenuItem {
   id: string;
   label: string;
+  /** Необязательный тултип пункта (например, полный путь назначения). */
+  title?: string;
   disabled?: boolean;
   danger?: boolean;
   separatorBefore?: boolean;
@@ -39,7 +41,71 @@ interface MenuLevelProps {
   submenu?: boolean;
 }
 
+const SUBMENU_MIN_WIDTH = 220;
+const VIEWPORT_MARGIN = 8;
+const SUBMENU_MAX_HEIGHT = 520;
+
+interface SubmenuProps {
+  anchor: HTMLElement | null;
+  items: ContextMenuItem[];
+  onClose: () => void;
+}
+
+/**
+ * Подменю рендерится порталом в `document.body` с `position: fixed`: иначе его
+ * обрезает `overflow-y` родительского `.vl-menu`, а у края окна оно уходит за
+ * экран. Позиция считается по кнопке-якорю: справа, при нехватке места — слева
+ * от неё; по вертикали прижимается к вьюпорту, высота ограничивается скроллом.
+ */
+function Submenu({ anchor, items, onClose }: SubmenuProps) {
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useLayoutEffect(() => {
+    const container = containerRef.current;
+    if (!container || !anchor) return;
+    const anchorRect = anchor.getBoundingClientRect();
+    const width = container.offsetWidth || SUBMENU_MIN_WIDTH;
+    const naturalHeight = container.offsetHeight;
+    const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight;
+
+    let left = anchorRect.right - 2;
+    if (left + width > viewportWidth - VIEWPORT_MARGIN) {
+      left = Math.max(VIEWPORT_MARGIN, anchorRect.left - width + 2);
+    }
+    left = Math.min(left, Math.max(VIEWPORT_MARGIN, viewportWidth - width - VIEWPORT_MARGIN));
+
+    const maxHeight = Math.min(SUBMENU_MAX_HEIGHT, viewportHeight - VIEWPORT_MARGIN * 2);
+    const height = Math.min(naturalHeight, maxHeight);
+    let top = anchorRect.top - 4;
+    if (top + height > viewportHeight - VIEWPORT_MARGIN) {
+      top = viewportHeight - VIEWPORT_MARGIN - height;
+    }
+    top = Math.max(VIEWPORT_MARGIN, top);
+
+    container.style.left = `${left}px`;
+    container.style.top = `${top}px`;
+    const menu = container.querySelector<HTMLElement>('.vl-menu');
+    if (menu) menu.style.maxHeight = `${Math.max(120, viewportHeight - top - VIEWPORT_MARGIN)}px`;
+  }, [anchor, items]);
+
+  return createPortal(
+    <div ref={containerRef} className="vl-menu__submenu" data-submenu="true">
+      <MenuLevel
+        items={items}
+        onClose={onClose}
+        openId={null}
+        setOpenId={() => undefined}
+        submenu
+      />
+    </div>,
+    document.body,
+  );
+}
+
 function MenuLevel({ items, onClose, openId, setOpenId, submenu = false }: MenuLevelProps) {
+  const itemRefs = useRef<Record<string, HTMLButtonElement | null>>({});
+
   const handleKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
     const buttons = Array.from(
       event.currentTarget.querySelectorAll<HTMLButtonElement>(
@@ -83,10 +149,14 @@ function MenuLevel({ items, onClose, openId, setOpenId, submenu = false }: MenuL
           data-entry-id={item.id}
         >
           <button
+            ref={(element) => {
+              itemRefs.current[item.id] = element;
+            }}
             type="button"
             role="menuitem"
             className={`vl-menu__item${item.danger ? ' vl-menu__item--danger' : ''}`}
             disabled={item.disabled}
+            title={item.title}
             aria-haspopup={item.children?.length ? 'menu' : undefined}
             aria-expanded={item.children?.length ? openId === item.id : undefined}
             onMouseEnter={() => setOpenId(item.children?.length ? item.id : null)}
@@ -107,15 +177,7 @@ function MenuLevel({ items, onClose, openId, setOpenId, submenu = false }: MenuL
             ) : null}
           </button>
           {item.children?.length && openId === item.id ? (
-            <div className="vl-menu__submenu">
-              <MenuLevel
-                items={item.children}
-                onClose={onClose}
-                openId={null}
-                setOpenId={() => undefined}
-                submenu
-              />
-            </div>
+            <Submenu anchor={itemRefs.current[item.id] ?? null} items={item.children} onClose={onClose} />
           ) : null}
         </div>
       ))}
@@ -131,7 +193,11 @@ export function ContextMenu({ x, y, items, onClose, label }: ContextMenuProps) {
 
   useEffect(() => {
     const handlePointerDown = (event: MouseEvent) => {
-      if (!containerRef.current?.contains(event.target as Node)) onClose();
+      const target = event.target as Element | null;
+      const insideMenu = containerRef.current?.contains(target as Node);
+      // Подменю живёт в портале (`data-submenu`) вне контейнера корневого меню.
+      const insideSubmenu = target?.closest?.('[data-submenu="true"]') != null;
+      if (!insideMenu && !insideSubmenu) onClose();
     };
     const handleKey = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {

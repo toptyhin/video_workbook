@@ -52,6 +52,11 @@ def test_extract_audio(tmp_path):
 
 def test_queue_reports_missing_model(client, config, tmp_path, monkeypatch):
     monkeypatch.setenv("VL_ALLOW_MODEL_DOWNLOAD", "0")
+    # В dev в resources/models есть tiny/small; для проверки ошибки «нет модели»
+    # принудительно отключаем резолвер (M13).
+    from app.services import queue as queue_module
+
+    monkeypatch.setattr(queue_module.model_resolver, "resolve_whisper", lambda config, name: None)
     video = make_video(tmp_path / "lesson.mp4")
     response = client.post("/api/videos/scan", json={"path": str(video)})
     assert response.status_code == 202

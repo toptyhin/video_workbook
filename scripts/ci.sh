@@ -12,12 +12,17 @@ esac
 if [ "$STAGE" = "build" ] || [ "$STAGE" = "all" ]; then
   if ! command -v docker >/dev/null; then echo "docker недоступен" >&2; exit 2; fi
   scripts/fetch-ffmpeg.sh || exit 2
+  scripts/fetch-llama-runtime.sh || exit 2
   scripts/build-backend.sh docker || exit 2
   scripts/build-electron.sh || exit 1
 fi
 if [ "$STAGE" = "artifacts" ] || [ "$STAGE" = "all" ]; then
   mkdir -p dist
-  npx electron-builder --linux deb AppImage --publish never || exit 1
+  # npm run dist передаёт --config packaging/electron-builder.yml (без него
+  # extraResources не применяются и AppImage выходит без backend).
+  npm run dist || exit 1
+  scripts/check-artifacts.sh || exit 1
+  scripts/smoke-sidecar.sh || exit 1
   mkdir -p dist/ci && sha256sum dist/*.deb dist/*.AppImage 2>/dev/null > dist/ci/SHA256SUMS || true
 fi
 echo "CI OK"

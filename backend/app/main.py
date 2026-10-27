@@ -21,16 +21,25 @@ from .routers import (
     folders,
     fs,
     health,
+    recordings,
     search,
     settings,
+    summaries,
     tags,
     videos,
 )
+from .routers import (
+    models as models_router,
+)
+from .services.embeddings import SemanticIndexManager
 from .services.events import EventBus
 from .services.external_player import ExternalPlayerManager
+from .services.model_store import ModelStore
 from .services.preview import PreviewManager
 from .services.queue import TranscriptionQueue
+from .services.recording import RecordingManager
 from .services.scanner import Scanner
+from .services.summary.manager import SummaryManager
 from .services.watcher import LibraryWatcher
 from .utils.logging import setup_logging
 
@@ -71,25 +80,70 @@ def create_app(config: Config | None = None) -> FastAPI:
         bus.bind_loop(asyncio.get_running_loop())
         scanner = Scanner(cfg, bus)
         scanner.bind_loop(asyncio.get_running_loop())
-        transcription_queue = TranscriptionQueue(cfg, bus)
+        embeddings = SemanticIndexManager(cfg, bus)
+        transcription_queue = TranscriptionQueue(cfg, bus, embeddings)
         watcher = LibraryWatcher(cfg, bus)
         preview = PreviewManager(cfg, bus)
         external_player = ExternalPlayerManager(cfg, bus)
+        recording = RecordingManager(cfg, bus)
+        recording.cleanup_stale_tmp()
+        summary = SummaryManager(cfg, bus)
+        model_store = ModelStore(cfg, bus)
+
+        def _model_in_use(model_id: str) -> bool:
+            try:
+                conn = connect(cfg.db_path)
+                try:
+                    from .services.settings_service import get_all
+
+                    settings_values = get_all(conn)
+                    indexing = bool(embeddings.status(conn).get("indexing"))
+                finally:
+                    conn.close()
+            except Exception:  # pragma: no cover - занятость не должна ломать удаление
+                settings_values = {}
+                indexing = False
+            if model_id == f"whisper-{settings_values.get('whisper_model', 'small')}":
+                return not transcription_queue.is_idle()
+            if model_id == "embedding-e5-small":
+                return indexing
+            if model_id == settings_values.get("summary.model"):
+                return summary.is_busy()
+            return False
+
+        model_store.set_in_use_checker(_model_in_use)
+        # M14: саммари не конкурирует за CPU с транскрипцией/индексацией.
+        summary.set_compute_gate(
+            lambda: not transcription_queue.state().get("current")
+            and not transcription_queue.state().get("pending")
+        )
         transcription_queue.start()
+        embeddings.start()
+        summary.start()
+        model_store.start()
+        transcription_queue.set_done_callback(summary.on_transcription_done)
         watcher.start(roots)
         app.state.bus = bus
         app.state.scanner = scanner
+        app.state.embeddings = embeddings
         app.state.queue = transcription_queue
         app.state.watcher = watcher
         app.state.preview = preview
         app.state.external = external_player
+        app.state.recording = recording
+        app.state.summary = summary
+        app.state.models = model_store
         try:
             yield
         finally:
+            model_store.shutdown()
+            summary.shutdown()
             transcription_queue.stop()
+            embeddings.shutdown()
             watcher.stop()
             preview.stop()
             external_player.stop()
+            recording.shutdown()
 
     app = FastAPI(
         title="VideoLessons",
@@ -123,6 +177,9 @@ def create_app(config: Config | None = None) -> FastAPI:
     app.include_router(search.router)
     app.include_router(annotations.router)
     app.include_router(external.router)
+    app.include_router(recordings.router)
+    app.include_router(summaries.router)
+    app.include_router(models_router.router)
 
     _mount_frontend(app, cfg)
     return app

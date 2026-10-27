@@ -1,3 +1,13 @@
+# Конфиг electron-builder для VideoLessons (M8).
+#
+# ВАЖНО: файл лежит вне корня проекта, поэтому electron-builder сам его НЕ находит.
+# Запускать только через `npm run dist` / `npm run dist:appimage` (они передают
+# `--config packaging/electron-builder.yml`). Нельзя добавлять ключ "build" в
+# package.json: при его наличии electron-builder игнорирует этот файл целиком
+# (app-builder-lib: loadConfig берёт packageMetadata.build и не ищет конфиг) —
+# именно из-за этого extraResources не попадали в AppImage, а в asar затягивался
+# весь репозиторий. Модели (M13) в extraResources НЕ входят — их скачивает
+# пользователь из «Настройки → Модели» в $VL_DATA_DIR/models.
 appId: local.videolessons
 productName: VideoLessons
 copyright: VideoLessons
@@ -10,16 +20,23 @@ files:
   - "!**/*.map"
 asar: true
 extraResources:
+  # ВАЖНО: from — каталог, поэтому electron-builder копирует его СОДЕРЖИМОЕ в `to`.
+  # Нужна плоская раскладка resources/backend/{vl-backend,_internal,...}:
+  # electron/backend.ts запускает ровно resources/backend/vl-backend (файл).
+  # `to: backend/vl-backend` давал бы лишний уровень вложенности и spawn EACCES.
   - from: backend-dist/vl-backend
-    to: backend/vl-backend
+    to: backend
   - from: frontend/dist
     to: frontend/dist
   - from: resources/ffmpeg
     to: ffmpeg
-  - from: resources/models
-    to: models
+  # M14: pinned CPU-runtime llama.cpp (llama-cli + libs), модели — загружаются в рантайме (M13).
+  - from: resources/llama
+    to: llama
   - from: resources/THIRD-PARTY-NOTICES.md
     to: THIRD-PARTY-NOTICES.md
+  - from: resources/SOURCE-OFFER.md
+    to: SOURCE-OFFER.md
 linux:
   target:
     - deb
@@ -30,7 +47,6 @@ linux:
 deb:
   packageCategory: video
   priority: optional
-  afterInstall: packaging/linux/after-install.tpl
   depends:
     - libgtk-3-0
     - libnotify4
@@ -42,5 +58,10 @@ deb:
     - libdrm2
     - libgbm1
     - libasound2
+  recommends:
+    # M11: parec/pactl (PulseAudio/PipeWire) нужны для записи системного звука:
+    # поставляемый static ffmpeg не содержит pulse-демаксера.
+    - pulseaudio-utils
+afterPack: scripts/after-pack.js
 appImage:
   artifactName: VideoLessons-${version}.${ext}

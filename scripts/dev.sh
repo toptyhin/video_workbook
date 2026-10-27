@@ -68,6 +68,7 @@ if [ "${VL_NO_ELECTRON:-0}" = "1" ]; then
 fi
 
 if [ ! -x "$ROOT/node_modules/electron/dist/electron" ]; then
+  echo "$ROOT/node_modules/electron/dist/electron"
   echo "Electron не установлен (node_modules/electron/dist/electron) — открывайте UI в браузере." >&2
   wait
 fi

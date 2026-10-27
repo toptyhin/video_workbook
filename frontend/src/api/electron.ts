@@ -1,4 +1,4 @@
-import type { AppInfo, BackendInfo, BackendStatus, VLApi } from './types';
+import type { AppInfo, BackendInfo, BackendStatus, CaptureSource, VLApi } from './types';
 
 const BROWSER_TOKEN = import.meta.env.VITE_VL_TOKEN as string | undefined;
 
@@ -17,6 +17,8 @@ const browserFallback: VLApi = {
     // eslint-disable-next-line no-console
     console[level === 'info' ? 'log' : level](`[vl] ${message}`);
   },
+  // В браузере нет Electron desktopCapturer — запись экрана недоступна.
+  getCaptureSources: async (): Promise<CaptureSource[]> => [],
 };
 
 export function vl(): VLApi {
@@ -25,4 +27,15 @@ export function vl(): VLApi {
 
 export async function backend(): Promise<BackendInfo> {
   return vl().getBackend();
+}
+
+/** M11: источники захвата экрана/окна (только через Electron API). */
+export async function getCaptureSources(): Promise<CaptureSource[]> {
+  return vl().getCaptureSources();
+}
+
+/** M11: доступен ли Electron-мост захвата (в браузере — нет). */
+export function isCaptureAvailable(): boolean {
+  if (typeof window === 'undefined') return false;
+  return typeof window.vl?.getCaptureSources === 'function';
 }

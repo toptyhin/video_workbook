@@ -10,6 +10,8 @@ import { useExternalStore } from '../../state/externalStore';
 import { useTagsStore } from '../../state/tagsStore';
 import { ConfirmDialog } from '../ui/ConfirmDialog';
 import { Spinner } from '../ui/Spinner';
+import { ModelsSection } from './ModelsSection';
+import { SummarySettings } from './SummarySettings';
 import './SettingsDialog.css';
 
 const THEMES: { value: Theme; labelKey: string }[] = [
@@ -308,6 +310,17 @@ export function SettingsDialog() {
                     ))}
                   </select>
                 </label>
+              </section>
+
+              <ModelsSection />
+
+              <section className="vl-settings__section">
+                <h3 className="vl-settings__section-title">{t('settings.summarySection')}</h3>
+                <SummarySettings
+                  onOpenModels={() =>
+                    document.getElementById('vl-models-section')?.scrollIntoView({ block: 'start' })
+                  }
+                />
               </section>
 
               <section className="vl-settings__section">

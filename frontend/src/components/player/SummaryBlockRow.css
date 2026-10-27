@@ -1,0 +1,67 @@
+/* M14: блок саммари в панели таймингов. */
+
+.vl-summary-block {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 10px 10px 8px;
+  border-left: 3px solid transparent;
+  cursor: pointer;
+  outline: none;
+}
+
+.vl-summary-block:hover {
+  background: var(--vl-hover);
+}
+
+.vl-summary-block.is-active {
+  background: var(--vl-accent-soft);
+  border-left-color: var(--vl-accent);
+}
+
+.vl-summary-block:focus-visible {
+  outline: 2px solid var(--vl-focus);
+  outline-offset: -2px;
+}
+
+.vl-summary-block__title {
+  font-weight: 600;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+
+.vl-summary-block__time {
+  font-family: var(--vl-font-mono);
+  font-size: 11px;
+  color: var(--vl-text-muted);
+}
+
+.vl-summary-block.is-active .vl-summary-block__time {
+  color: var(--vl-text);
+}
+
+.vl-summary-block__text {
+  line-height: 1.45;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.vl-summary-block__keywords {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 2px;
+}
+
+.vl-summary-block__chip {
+  padding: 1px 6px;
+  font-size: 10px;
+  color: var(--vl-accent);
+  background: var(--vl-accent-soft);
+  border: 1px solid transparent;
+  border-radius: 999px;
+}
+
+[data-theme='dark'] .vl-summary-block__chip {
+  color: var(--vl-text);
+}

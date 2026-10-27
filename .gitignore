@@ -26,3 +26,4 @@ resources/ffmpeg/GPLv3.txt
 resources/SOURCE-OFFER.md
 .docker/
 e2e/trace.zip
+resources/llama/

@@ -79,22 +79,35 @@ def test_settings_survive_restart(config, app, client):
 def test_migrations_idempotent_and_version(config):
     conn = connect(config.db_path)
     try:
-        assert migrate(conn, config.migrations_dir) == 7
-        assert get_user_version(conn) == 7
-        assert migrate(conn, config.migrations_dir) == 7
+        assert migrate(conn, config.migrations_dir) == 12
+        assert get_user_version(conn) == 12
+        assert migrate(conn, config.migrations_dir) == 12
         tables = {
             row["name"]
             for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")
         }
         for table in ("videos", "segments", "tags", "video_tags", "segment_tags", "annotations",
                       "watched_folders", "settings", "folder_stats", "annotation_tags",
-                      "segments_fts", "annotations_fts"):
+                      "recordings", "segment_embeddings", "segments_fts", "annotations_fts"):
             assert table in tables
         columns = {row["name"] for row in conn.execute("PRAGMA table_info(videos)")}
         for column in ("lang", "model", "headline", "mtime_ms", "duplicate_of"):
             assert column in columns
         annotation_columns = {row["name"] for row in conn.execute("PRAGMA table_info(annotations)")}
         assert "updated_at" in annotation_columns
+        recording_columns = {row["name"] for row in conn.execute("PRAGMA table_info(recordings)")}
+        for column in ("id", "video_id", "source_kind", "source_title", "mime_type",
+                       "system_audio", "duration_ms", "size_bytes", "created_at"):
+            assert column in recording_columns
+        embedding_columns = {
+            row["name"] for row in conn.execute("PRAGMA table_info(segment_embeddings)")
+        }
+        for column in ("segment_id", "model", "dim", "vector", "updated_at"):
+            assert column in embedding_columns
+        embedding_indexes = {
+            row["name"] for row in conn.execute("PRAGMA index_list(segment_embeddings)")
+        }
+        assert "idx_segment_embeddings_model" in embedding_indexes
     finally:
         conn.close()
 

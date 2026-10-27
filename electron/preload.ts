@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer, webUtils } from 'electron';
-import { IPC, type BackendInfo, type BackendStatus } from './ipc-channels';
+import { IPC, type BackendInfo, type BackendStatus, type CaptureSourceInfo } from './ipc-channels';
 
 const api = {
   getBackend: (): Promise<BackendInfo> => ipcRenderer.invoke(IPC.backendGet),
@@ -21,6 +21,7 @@ const api = {
     ipcRenderer.on(IPC.backendStatus, handler);
     return () => ipcRenderer.removeListener(IPC.backendStatus, handler);
   },
+  getCaptureSources: (): Promise<CaptureSourceInfo[]> => ipcRenderer.invoke(IPC.captureSources),
   log: (level: 'info' | 'warn' | 'error', message: string): void => {
     ipcRenderer.send(IPC.log, level, message);
   },

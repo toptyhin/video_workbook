@@ -61,10 +61,15 @@
 }
 
 .vl-menu__submenu {
-  position: absolute;
-  top: -4px;
-  left: calc(100% - 2px);
+  /* Портал в body: fixed-позиционирование не обрезается overflow родительского
+     .vl-menu; left/top и max-height выставляет Submenu (флип у края окна). */
+  position: fixed;
+  z-index: 2101;
+  top: 0;
+  left: 0;
+  width: max-content;
   min-width: 220px;
+  max-width: min(360px, calc(100vw - 16px));
 }
 
 .vl-menu__submenu .vl-menu {

@@ -96,14 +96,19 @@ export class BackendManager {
           if (line.startsWith('VL_READY:')) {
             try {
               const payload = JSON.parse(line.slice('VL_READY:'.length));
-              this.info = { baseUrl: `http://127.0.0.1:${payload.port}`, token: this.token };
-              if (!settled) {
-                settled = true;
-                clearTimeout(timer);
-                this.restarts = 0;
-                this.opts.onStatus('ready');
-                resolve(this.info);
+              if (settled) {
+                // Дочерние процессы sidecar (multiprocessing spawn) наследуют
+                // stdout, поэтому поздний VL_READY не должен перезаписывать
+                // адрес уже работающего backend.
+                this.opts.logger.warn(`Ignoring late VL_READY on port ${payload.port}`);
+                continue;
               }
+              this.info = { baseUrl: `http://127.0.0.1:${payload.port}`, token: this.token };
+              settled = true;
+              clearTimeout(timer);
+              this.restarts = 0;
+              this.opts.onStatus('ready');
+              resolve(this.info);
             } catch (error) {
               this.opts.logger.error(`Bad VL_READY payload: ${line} (${String(error)})`);
             }

@@ -1,0 +1,75 @@
+/* M14: секция «Саммари» в настройках. */
+
+.vl-summary-settings {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.vl-summary-settings__status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.vl-summary-settings__models {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.vl-summary-settings__model {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 4px 6px;
+  background: var(--vl-bg-sunken);
+  border-radius: var(--vl-radius-sm);
+}
+
+.vl-summary-settings__model-label {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.vl-summary-settings__badge {
+  flex: 0 0 auto;
+  padding: 1px 6px;
+  font-size: 10px;
+  font-weight: 600;
+  border-radius: 999px;
+}
+
+.vl-summary-settings__badge.is-recommended {
+  color: var(--vl-accent-text);
+  background: var(--vl-accent);
+}
+
+.vl-summary-settings__badge.is-alternative {
+  color: var(--vl-text);
+  background: var(--vl-bg-elevated);
+  border: 1px solid var(--vl-border);
+}
+
+.vl-summary-settings__state {
+  flex: 0 0 auto;
+  font-size: 11px;
+  color: var(--vl-text-muted);
+}
+
+.vl-summary-settings__state.is-installed {
+  color: var(--vl-success);
+}
+
+.vl-summary-settings__cta {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: flex-start;
+}

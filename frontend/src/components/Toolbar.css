@@ -9,6 +9,42 @@
   flex: 0 0 auto;
 }
 
+.vl-toolbar__record {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+.vl-toolbar__record::before {
+  content: '';
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--vl-danger);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--vl-danger) 18%, transparent);
+}
+
+.vl-toolbar__record:disabled::before {
+  background: var(--vl-text-muted);
+  box-shadow: none;
+}
+
+.vl-toolbar__record:not(:disabled):hover::before {
+  animation: vl-toolbar-record-pulse 1.4s ease-out infinite;
+}
+
+@keyframes vl-toolbar-record-pulse {
+  0% {
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--vl-danger) 30%, transparent);
+  }
+  70%,
+  100% {
+    box-shadow: 0 0 0 6px transparent;
+  }
+}
+
 .vl-toolbar__search {
   display: flex;
   align-items: center;

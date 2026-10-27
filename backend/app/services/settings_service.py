@@ -19,7 +19,21 @@ DEFAULTS: dict[str, Any] = {
     "external.player_path": "",
     "external.policy": "ask",
     "external.pass_marks": True,
+    # M13: менеджер моделей.
+    "models.endpoint": "",
+    "models.offline": False,
+    "models.auto_download": False,
+    # M14: саммари транскрибации.
+    "summary.enabled": True,
+    "summary.auto": True,
+    "summary.thinking": "auto",
+    "summary.model": "summary-lfm2.5-350m",
+    # V5: история адресатов «Переместить/Скопировать в папку» (свежие первыми).
+    "files.recent_destinations": [],
 }
+
+RECENT_DESTINATIONS_KEY = "files.recent_destinations"
+RECENT_DESTINATIONS_LIMIT = 5
 
 ALLOWED_VALUES: dict[str, set[Any]] = {
     "language": {"auto", "ru", "en"},
@@ -29,6 +43,7 @@ ALLOWED_VALUES: dict[str, set[Any]] = {
     "log.level": {"INFO", "DEBUG", "WARNING"},
     "external.player": {"mpv", "vlc", "system"},
     "external.policy": {"ask", "always", "never"},
+    "summary.thinking": {"auto", "off"},
 }
 
 
@@ -53,9 +68,29 @@ def get_all(conn: sqlite3.Connection) -> dict[str, Any]:
     return values
 
 
+_BOOL_KEYS = {"models.offline", "models.auto_download", "summary.enabled", "summary.auto"}
+
+
 def validate(key: str, value: Any) -> Any:
     if key not in DEFAULTS:
         raise SettingsError("unknown_setting", f"Неизвестная настройка: {key}")
+    if key in _BOOL_KEYS:
+        if not isinstance(value, bool):
+            raise SettingsError("invalid_setting", f"{key}: ожидается true/false")
+        return value
+    if key == "models.endpoint":
+        if not isinstance(value, str) or len(value) > 300:
+            raise SettingsError("invalid_setting", "models.endpoint: ожидается строка до 300 символов")
+        value = value.strip()
+        if value and not (value.startswith("https://") or value.startswith("http://127.0.0.1") or value.startswith("http://localhost")):
+            raise SettingsError("invalid_setting", "models.endpoint: допустим https://… или http://127.0.0.1…")
+        return value.rstrip("/")
+    if key == "summary.model":
+        from .model_resolver import summary_model_ids
+
+        if value not in summary_model_ids():
+            raise SettingsError("invalid_setting", "summary.model: неизвестная модель саммари")
+        return value
     if key == "external.player_path":
         if not isinstance(value, str) or len(value) > 500:
             raise SettingsError("invalid_setting", "external.player_path: ожидается строка до 500 символов")
@@ -64,6 +99,33 @@ def validate(key: str, value: Any) -> Any:
         if not isinstance(value, bool):
             raise SettingsError("invalid_setting", "external.pass_marks: ожидается true/false")
         return value
+    if key == "files.recent_destinations":
+        if not isinstance(value, list):
+            raise SettingsError(
+                "invalid_setting", "files.recent_destinations: ожидается список строк"
+            )
+        if len(value) > RECENT_DESTINATIONS_LIMIT:
+            raise SettingsError(
+                "invalid_setting",
+                f"files.recent_destinations: не больше {RECENT_DESTINATIONS_LIMIT} значений",
+            )
+        seen: set[str] = set()
+        for item in value:
+            if not isinstance(item, str):
+                raise SettingsError(
+                    "invalid_setting", "files.recent_destinations: ожидается список строк"
+                )
+            if not 1 <= len(item) <= 4096:
+                raise SettingsError(
+                    "invalid_setting",
+                    "files.recent_destinations: длина пути должна быть 1..4096 символов",
+                )
+            if item in seen:
+                raise SettingsError(
+                    "invalid_setting", "files.recent_destinations: дубли путей недопустимы"
+                )
+            seen.add(item)
+        return list(value)
     if key == "tags.max_depth":
         if not isinstance(value, int) or isinstance(value, bool) or not 1 <= value <= 8:
             raise SettingsError("invalid_setting", "tags.max_depth: ожидается целое 1..8")
@@ -92,3 +154,15 @@ def patch(conn: sqlite3.Connection, values: dict[str, Any]) -> dict[str, Any]:
         )
     conn.commit()
     return get_all(conn)
+
+
+def remember_destination(conn: sqlite3.Connection, destination: str) -> list[str]:
+    """Кладёт путь в начало истории адресатов, убирает дубли, обрезает до 5."""
+    current = get_all(conn).get(RECENT_DESTINATIONS_KEY)
+    history: list[str] = [destination]
+    for item in current if isinstance(current, list) else []:
+        if isinstance(item, str) and item != destination and item not in history:
+            history.append(item)
+    history = history[:RECENT_DESTINATIONS_LIMIT]
+    patch(conn, {RECENT_DESTINATIONS_KEY: history})
+    return history

@@ -8,17 +8,31 @@ import type {
   Folder,
   ExternalPlayersResponse,
   ExternalStatus,
+  FinishRecordingPayload,
+  FinishRecordingResponse,
   FolderListResponse,
   FsListResponse,
   QueueState,
+  RecordingCapabilities,
+  RecordingChunkResponse,
+  ModelActionResponse,
+  ModelListResponse,
   ScanResponse,
   SearchParams,
   SearchResponse,
+  SemanticReindexResponse,
+  SemanticStatus,
   PlaybackInfo,
   SegmentListResponse,
   SettingsValues,
+  StartRecordingPayload,
+  StartRecordingResponse,
+  SummaryGenerateResponse,
+  SummaryResponse,
   TagNode,
   TagTreeResponse,
+  TransferAction,
+  TransferResponse,
   VideoListResponse,
   VideoQuery,
 } from './types';
@@ -99,6 +113,33 @@ async function request<T>(
   return data as T;
 }
 
+/** Запрос с сырым телом (M11: чанки записи — application/octet-stream). */
+async function requestRaw<T>(path: string, body: Blob, contentType: string): Promise<T> {
+  if (!cachedBackend) await initBackend();
+  const response = await fetch(`${getBaseUrl()}${path}`, {
+    method: 'POST',
+    headers: {
+      'X-VL-Token': getToken(),
+      'Content-Type': contentType,
+    },
+    body,
+  });
+  const text = await response.text();
+  let data: unknown = null;
+  if (text) {
+    try {
+      data = JSON.parse(text);
+    } catch {
+      data = { detail: text, code: null };
+    }
+  }
+  if (!response.ok) {
+    const err = (data ?? {}) as { detail?: string; code?: string };
+    throw new ApiError(response.status, err.detail ?? response.statusText, err.code ?? null);
+  }
+  return data as T;
+}
+
 export function mediaUrl(videoId: number, kind: 'stream' | 'thumb' | 'preview', extra?: Record<string, unknown>): string {
   const params = new URLSearchParams({ token: cachedBackend?.token ?? '' });
   if (extra) {
@@ -143,9 +184,37 @@ export const api = {
     }),
   deleteVideo: (id: number) => request<void>(`/api/videos/${id}`, { method: 'DELETE' }),
   reprocess: (id: number) => request<{ id: number; status: string }>(`/api/videos/${id}/reprocess`, { method: 'POST' }),
+
+  // M15: перемещение/копирование файлов в папку внутри watched roots (plans/15 §3.1).
+  transferVideos: (payload: { action: TransferAction; ids: number[]; destination: string }) =>
+    request<TransferResponse>('/api/videos/transfer', { method: 'POST', body: payload }),
   cancelVideo: (id: number) => request<{ id: number; status: string }>(`/api/videos/${id}/cancel`, { method: 'POST' }),
   queue: () => request<QueueState>('/api/queue'),
   segments: (videoId: number) => request<SegmentListResponse>(`/api/videos/${videoId}/segments`),
+
+  // M13: менеджер моделей (plans/13 §4.3).
+  models: () => request<ModelListResponse>('/api/models'),
+  downloadModel: (id: string) =>
+    request<ModelActionResponse>(`/api/models/${encodeURIComponent(id)}/download`, { method: 'POST' }),
+  cancelModel: (id: string) =>
+    request<ModelActionResponse>(`/api/models/${encodeURIComponent(id)}/cancel`, { method: 'POST' }),
+  deleteModel: (id: string) =>
+    request<void>(`/api/models/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+  importModel: (id: string, path: string) =>
+    request<ModelActionResponse>(`/api/models/${encodeURIComponent(id)}/import`, {
+      method: 'POST',
+      body: { path },
+    }),
+
+  // M14: саммари транскрибации (plans/14 §4.2).
+  summary: (videoId: number) => request<SummaryResponse>(`/api/videos/${videoId}/summary`),
+  generateSummary: (videoId: number, level?: number, force = false) =>
+    request<SummaryGenerateResponse>(`/api/videos/${videoId}/summary`, {
+      method: 'POST',
+      body: { level, force },
+    }),
+  deleteSummary: (videoId: number) =>
+    request<void>(`/api/videos/${videoId}/summary`, { method: 'DELETE' }),
   playback: (videoId: number) => request<PlaybackInfo>(`/api/videos/${videoId}/playback`),
   preparePreview: (videoId: number) =>
     request<PlaybackInfo>(`/api/videos/${videoId}/prepare-preview`, { method: 'POST' }),
@@ -171,6 +240,7 @@ export const api = {
       params: {
         q: params.q,
         scope: params.scope,
+        mode: params.mode,
         video_id: params.video_id,
         tag_ids: params.tag_ids,
         tag_mode: params.tag_mode,
@@ -180,6 +250,14 @@ export const api = {
         offset: params.offset,
       },
       signal,
+    }),
+
+  // M12: семантический (векторный) поиск по сегментам транскрибации (plans/12 §3.3).
+  semanticStatus: () => request<SemanticStatus>('/api/search/semantic/status'),
+  semanticReindex: (force = false) =>
+    request<SemanticReindexResponse>('/api/search/semantic/reindex', {
+      method: 'POST',
+      body: { force },
     }),
 
   folders: () => request<FolderListResponse>('/api/folders'),
@@ -237,4 +315,27 @@ export const api = {
       method: 'POST',
       body: { video_id: videoId, data, mode },
     }),
+
+  // M11: запись экрана/окна (plans/11 §4).
+  recordingCapabilities: () => request<RecordingCapabilities>('/api/recordings/capabilities'),
+  startRecording: (payload: StartRecordingPayload) =>
+    request<StartRecordingResponse>('/api/recordings', { method: 'POST', body: payload }),
+  /** Чанк WebM — сырое тело, порядок байт важен; retry/очередь — в recordStore. */
+  uploadRecordingChunk: (recordingId: string, chunk: Blob) =>
+    requestRaw<RecordingChunkResponse>(
+      `/api/recordings/${encodeURIComponent(recordingId)}/chunks`,
+      chunk,
+      'application/octet-stream',
+    ),
+  pauseRecording: (recordingId: string) =>
+    request<void>(`/api/recordings/${encodeURIComponent(recordingId)}/pause`, { method: 'POST' }),
+  resumeRecording: (recordingId: string) =>
+    request<void>(`/api/recordings/${encodeURIComponent(recordingId)}/resume`, { method: 'POST' }),
+  finishRecording: (recordingId: string, payload: FinishRecordingPayload = {}) =>
+    request<FinishRecordingResponse>(`/api/recordings/${encodeURIComponent(recordingId)}/finish`, {
+      method: 'POST',
+      body: payload,
+    }),
+  cancelRecording: (recordingId: string) =>
+    request<void>(`/api/recordings/${encodeURIComponent(recordingId)}/cancel`, { method: 'POST' }),
 };

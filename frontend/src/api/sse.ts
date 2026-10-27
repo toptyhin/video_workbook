@@ -19,6 +19,15 @@ const EVENT_TYPES = [
   'settings.changed',
   'external.state',
   'backend.error',
+  // M12: прогресс/состояние фоновой индексации семантического поиска (plans/12 §3.3).
+  'embedding.progress',
+  'embedding.state',
+  // M13: состояние/прогресс загрузки моделей.
+  'model.progress',
+  'model.state',
+  // M14: состояние/прогресс генерации саммари.
+  'summary.progress',
+  'summary.state',
 ] as const;
 
 export function connectEvents(

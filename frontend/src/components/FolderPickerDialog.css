@@ -1,0 +1,187 @@
+.vl-folderpick-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2200;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(15, 23, 42, 0.45);
+}
+
+.vl-folderpick {
+  width: min(560px, 100%);
+  height: min(520px, calc(100vh - 48px));
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--vl-border);
+  border-radius: var(--vl-radius);
+  background: var(--vl-bg-elevated);
+  box-shadow: var(--vl-shadow);
+  outline: none;
+}
+
+.vl-folderpick__header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--vl-border);
+  flex: 0 0 auto;
+}
+
+.vl-folderpick__title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.vl-folderpick__close {
+  margin-left: auto;
+  border: 0;
+  background: transparent;
+  font-size: 17px;
+  line-height: 1;
+  color: var(--vl-text-muted);
+  padding: 2px 6px;
+}
+
+.vl-folderpick__close:hover {
+  background: var(--vl-hover);
+  color: var(--vl-text);
+}
+
+.vl-folderpick__path {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 6px 16px;
+  border-bottom: 1px solid var(--vl-border);
+  background: var(--vl-bg-sunken);
+  font-size: 12px;
+  min-width: 0;
+  flex: 0 0 auto;
+}
+
+.vl-folderpick__path-label {
+  flex: 0 0 auto;
+  color: var(--vl-text-muted);
+}
+
+.vl-folderpick__path-value {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--vl-font-mono);
+}
+
+.vl-folderpick__body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  padding: 8px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.vl-folderpick__up {
+  align-self: flex-start;
+  font: inherit;
+  font-size: 12px;
+  padding: 3px 8px;
+  border: 1px solid var(--vl-border);
+  border-radius: var(--vl-radius-sm);
+  background: var(--vl-panel);
+  color: var(--vl-text);
+  cursor: pointer;
+}
+
+.vl-folderpick__up:hover:not(:disabled) {
+  background: var(--vl-hover);
+}
+
+.vl-folderpick__up:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.vl-folderpick__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.vl-folderpick__entry {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 8px;
+  font: inherit;
+  font-size: 13px;
+  text-align: left;
+  color: var(--vl-text);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--vl-radius-sm);
+  cursor: pointer;
+}
+
+.vl-folderpick__entry:hover {
+  background: var(--vl-hover);
+  border-color: var(--vl-border);
+}
+
+.vl-folderpick__entry:focus-visible {
+  outline: 2px solid var(--vl-focus);
+}
+
+.vl-folderpick__entry-icon {
+  flex: 0 0 auto;
+  font-size: 14px;
+}
+
+.vl-folderpick__entry-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.vl-folderpick__status {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: flex-start;
+  color: var(--vl-text-muted);
+  font-size: 12px;
+  padding: 8px 4px;
+}
+
+.vl-folderpick__empty {
+  margin: 8px 4px;
+  color: var(--vl-text-muted);
+  font-size: 12px;
+}
+
+.vl-folderpick__footer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border-top: 1px solid var(--vl-border);
+  flex: 0 0 auto;
+}
+
+.vl-folderpick__count {
+  margin-right: auto;
+  color: var(--vl-text-muted);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}

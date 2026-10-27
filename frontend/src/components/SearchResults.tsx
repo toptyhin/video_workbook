@@ -1,8 +1,8 @@
 import { useMemo, useState } from 'react';
-import type { SearchItem } from '../api/types';
+import type { SearchItem, SearchMode, SemanticStatus } from '../api/types';
 import { t } from '../lib/i18n';
 import { formatTimecode } from '../lib/time';
-import { useSearchStore } from '../state/searchStore';
+import { SEARCH_MODES, selectSearchActive, useSearchStore } from '../state/searchStore';
 import { EmptyState } from './ui/EmptyState';
 import { Spinner } from './ui/Spinner';
 import './SearchResults.css';
@@ -15,9 +15,28 @@ const KINDS: { kind: SearchKind; labelKey: string }[] = [
   { kind: 'annotation', labelKey: 'search.annotation' },
 ];
 
+const MODE_LABELS: Record<SearchMode, string> = {
+  fts: 'search.modeFts',
+  semantic: 'search.modeSemantic',
+  hybrid: 'search.modeHybrid',
+};
+
 function itemTimecode(item: SearchItem): number | null {
   if (item.kind === 'file') return null;
   return item.start_ms;
+}
+
+function semanticReason(semantic: SemanticStatus | null): string {
+  return semantic?.detail
+    ? t('search.semanticUnavailable', { detail: semantic.detail })
+    : t('search.semanticNoDetail');
+}
+
+function indexingText(semantic: SemanticStatus): string {
+  return t('search.semanticIndexing', {
+    indexed: semantic.indexed_segments,
+    total: semantic.total_segments,
+  });
 }
 
 function ItemSnippet({ item }: { item: SearchItem }) {
@@ -31,16 +50,26 @@ function ItemSnippet({ item }: { item: SearchItem }) {
   );
 }
 
-/** Панель результатов единого поиска `/api/search` (kind: файл/сегмент/метка). */
+/**
+ * Панель результатов единого поиска `/api/search` (kind: файл/сегмент/метка).
+ * Живёт под полосой вкладок «Файлы/Метки» и при активном поиске заменяет список
+ * файлов (plans/12 §4.2): шапка фиксирована, список скроллится внутри панели.
+ */
 export function SearchResults() {
-  const query = useSearchStore((state) => state.query);
+  const scope = useSearchStore((state) => state.scope);
+  const mode = useSearchStore((state) => state.mode);
+  const semantic = useSearchStore((state) => state.semantic);
+  const semanticLoading = useSearchStore((state) => state.semanticLoading);
   const results = useSearchStore((state) => state.results);
   const total = useSearchStore((state) => state.total);
   const loading = useSearchStore((state) => state.loading);
   const error = useSearchStore((state) => state.error);
+  const active = useSearchStore(selectSearchActive);
   const runSearch = useSearchStore((state) => state.runSearch);
   const clear = useSearchStore((state) => state.clear);
+  const setMode = useSearchStore((state) => state.setMode);
   const openResult = useSearchStore((state) => state.openResult);
+  const reindexSemantic = useSearchStore((state) => state.reindexSemantic);
 
   const [kinds, setKinds] = useState<SearchKind[]>(['file', 'segment', 'annotation']);
 
@@ -49,7 +78,12 @@ export function SearchResults() {
     [results, kinds],
   );
 
-  if (query.trim().length === 0 && results.length === 0) return null;
+  if (!active) return null;
+
+  const unavailable = semantic !== null && !semantic.available;
+  const reason = semanticReason(semantic);
+  const scopeHint =
+    mode !== 'fts' && semantic?.available !== false && scope !== 'all' && scope !== 'segments';
 
   const toggleKind = (kind: SearchKind): void => {
     setKinds((current) =>
@@ -58,7 +92,7 @@ export function SearchResults() {
   };
 
   return (
-    <section className="vl-search" aria-label={t('search.results')}>
+    <section className="vl-search" aria-label={t('search.results')} data-search-mode={mode}>
       <header className="vl-search__header">
         <div className="vl-search__title-row">
           <h2 className="vl-search__title">{t('search.results')}</h2>
@@ -75,6 +109,27 @@ export function SearchResults() {
             ×
           </button>
         </div>
+
+        <div className="vl-search__modes" role="group" aria-label={t('search.mode')}>
+          {SEARCH_MODES.map((value) => {
+            const pressed = mode === value;
+            const disabled = value !== 'fts' && unavailable;
+            return (
+              <button
+                key={value}
+                type="button"
+                className={`vl-search__mode${pressed ? ' vl-search__mode--active' : ''}`}
+                aria-pressed={pressed}
+                disabled={disabled}
+                title={disabled ? reason : undefined}
+                onClick={() => setMode(value)}
+              >
+                {t(MODE_LABELS[value])}
+              </button>
+            );
+          })}
+        </div>
+
         <div className="vl-search__kinds" role="group" aria-label={t('search.results')}>
           {KINDS.map((item) => {
             const pressed = kinds.includes(item.kind);
@@ -91,6 +146,48 @@ export function SearchResults() {
             );
           })}
         </div>
+
+        {semantic !== null ? (
+          <div className="vl-search__semantic">
+            <span
+              className={`vl-search__semantic-note${
+                semantic.available && !semantic.indexing ? ' vl-search__semantic-note--muted' : ''
+              }`}
+              aria-live="polite"
+            >
+              {!semantic.available
+                ? reason
+                : semantic.indexing
+                  ? indexingText(semantic)
+                  : t('search.semanticReady', {
+                      indexed: semantic.indexed_segments,
+                      total: semantic.total_segments,
+                    })}
+            </span>
+            {semantic.available && (
+              <button
+                type="button"
+                className="vl-search__reindex"
+                disabled={semantic.indexing || semanticLoading}
+                title={t('search.reindex')}
+                onClick={() => void reindexSemantic()}
+              >
+                {t('search.reindex')}
+              </button>
+            )}
+          </div>
+        ) : (
+          semanticLoading &&
+          mode !== 'fts' && (
+            <div className="vl-search__semantic">
+              <span className="vl-search__semantic-note vl-search__semantic-note--muted">
+                {t('search.semanticChecking')}
+              </span>
+            </div>
+          )
+        )}
+
+        {scopeHint && <p className="vl-search__hint">{t('search.semanticScopeHint')}</p>}
       </header>
 
       {loading && (
@@ -130,6 +227,9 @@ export function SearchResults() {
                   <span className={`vl-search__kind vl-search__kind--${item.kind}`}>
                     {t(`search.${item.kind}`)}
                   </span>
+                  {item.semantic && (
+                    <span className="vl-search__semantic-badge">{t('search.semanticBadge')}</span>
+                  )}
                   <span className="vl-search__body">
                     <span className="vl-search__video">{item.video_title}</span>
                     <ItemSnippet item={item} />

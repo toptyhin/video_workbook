@@ -6,13 +6,17 @@ import multiprocessing
 import queue as thread_queue
 import threading
 import time
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from ..config import Config
 from ..db import connect
-from . import transcriber
+from . import model_resolver, transcriber
 from .events import EventBus
+
+if TYPE_CHECKING:
+    from .embeddings import SemanticIndexManager
 
 log = logging.getLogger(__name__)
 
@@ -29,9 +33,15 @@ class QueueError(ValueError):
 
 
 class TranscriptionQueue:
-    def __init__(self, config: Config, bus: EventBus) -> None:
+    def __init__(
+        self,
+        config: Config,
+        bus: EventBus,
+        embeddings: SemanticIndexManager | None = None,
+    ) -> None:
         self.config = config
         self.bus = bus
+        self.embeddings = embeddings
         self._queue: thread_queue.Queue[int] = thread_queue.Queue()
         self._pending: list[int] = []
         self._cancelled: set[int] = set()
@@ -39,6 +49,7 @@ class TranscriptionQueue:
         self._current_progress = 0.0
         self._cancel_events: dict[int, Any] = {}
         self._lock = threading.Lock()
+        self._done_callback: Callable[[int], None] | None = None
         self._stop = threading.Event()
         self._thread: threading.Thread | None = None
 
@@ -91,7 +102,8 @@ class TranscriptionQueue:
                     skipped.append({"id": video_id, "reason": "already_queued"})
                     continue
                 conn.execute(
-                    "UPDATE videos SET status = 'queued', progress = 0, error = NULL WHERE id = ?",
+                    "UPDATE videos SET status = 'queued', progress = 0, error = NULL, "
+                    "error_code = NULL WHERE id = ?",
                     (video_id,),
                 )
                 queued.append(video_id)
@@ -138,6 +150,17 @@ class TranscriptionQueue:
         finally:
             conn.close()
 
+    def set_done_callback(self, callback: Callable[[int], None] | None) -> None:
+        """M14: хук после успешной транскрипции (авто-саммари), не критичен для очереди."""
+        self._done_callback = callback
+
+    def is_idle(self) -> bool:
+        """True, если нет активной транскрипции и очередь пуста (compute-gate M14)."""
+        with self._lock:
+            # cancelled-записи могут ещё физически лежать в thread-queue; работы
+            # по ним нет, поэтому достаточно проверки текущего job и pending.
+            return self._current is None and not self._pending
+
     def state(self) -> dict[str, Any]:
         with self._lock:
             current = self._current
@@ -173,6 +196,9 @@ class TranscriptionQueue:
                 if video_id in self._cancelled:
                     self._cancelled.discard(video_id)
                     continue
+                # Фиксируем текущий job сразу после извлечения из очереди, чтобы
+                # is_idle() не давал ложный True в окне до _run_one().
+                self._current = video_id
                 if video_id in self._pending:
                     self._pending.remove(video_id)
             try:
@@ -219,7 +245,15 @@ class TranscriptionQueue:
 
         model_name = _setting(settings, "whisper_model", "small")
         language = _setting(settings, "language", "auto")
-        model_dir = self.config.resources_dir / "models" / f"faster-whisper-{model_name}"
+        # M13/D-13.9: модель ищется в data dir → legacy resources → отсутствует.
+        model_dir = model_resolver.resolve_whisper(self.config, model_name)
+        if model_dir is None:
+            self._mark_error(
+                video_id,
+                "Модель распознавания не установлена. Откройте Настройки → Модели",
+                error_code="model_missing",
+            )
+            return
         wav_path = self.config.tmp_dir / f"{video_id}.wav"
         ctx = multiprocessing.get_context("spawn")
         cancel_event = ctx.Event()
@@ -236,7 +270,7 @@ class TranscriptionQueue:
                 "wav_path": str(wav_path),
                 "ffmpeg": self.config.ffmpeg,
                 "model_name": model_name,
-                "model_dir": str(model_dir) if model_dir.exists() else None,
+                "model_dir": str(model_dir),
                 "language": language,
                 "duration_ms": row["duration_ms"],
                 "progress_queue": progress_queue,
@@ -301,7 +335,8 @@ class TranscriptionQueue:
                 )
             conn.execute(
                 "UPDATE videos SET status = 'done', progress = 1.0, error = NULL, "
-                "processed_at = datetime('now'), lang = ?, model = ?, headline = ? WHERE id = ?",
+                "error_code = NULL, processed_at = datetime('now'), lang = ?, model = ?, "
+                "headline = ? WHERE id = ?",
                 (
                     result.get("lang"),
                     model_name,
@@ -313,24 +348,41 @@ class TranscriptionQueue:
         finally:
             conn.close()
         self._publish_status(video_id, "done")
+        if self._done_callback is not None:
+            try:
+                self._done_callback(video_id)
+            except Exception:  # pragma: no cover - саммари не должно ронять очередь
+                log.exception("done callback failed for video %s", video_id)
         self.bus.publish("video.progress", {"video_id": video_id, "progress": 1.0})
+        if self.embeddings is not None:
+            try:
+                self.embeddings.index_video(video_id)
+            except Exception:  # pragma: no cover - менеджер деградирует сам
+                log.warning("Semantic indexing failed for video %s", video_id, exc_info=True)
 
-    def _mark_error(self, video_id: int, message: str) -> None:
+    def _mark_error(
+        self, video_id: int, message: str, *, error_code: str | None = None
+    ) -> None:
         conn = connect(self.config.db_path)
         try:
             conn.execute(
-                "UPDATE videos SET status = 'error', error = ?, progress = 0 WHERE id = ?",
-                (message[:2000], video_id),
+                "UPDATE videos SET status = 'error', error = ?, error_code = ?, progress = 0 "
+                "WHERE id = ?",
+                (message[:2000], error_code, video_id),
             )
             conn.commit()
         finally:
             conn.close()
-        self._publish_status(video_id, "error", message)
+        self._publish_status(video_id, "error", message, error_code)
 
     def _mark_pending(self, video_id: int) -> None:
         conn = connect(self.config.db_path)
         try:
-            conn.execute("UPDATE videos SET status = 'pending', progress = 0 WHERE id = ?", (video_id,))
+            conn.execute(
+                "UPDATE videos SET status = 'pending', progress = 0, error_code = NULL "
+                "WHERE id = ?",
+                (video_id,),
+            )
             conn.commit()
         finally:
             conn.close()
@@ -345,9 +397,22 @@ class TranscriptionQueue:
             conn.close()
         self.bus.publish_threadsafe("video.progress", {"video_id": video_id, "progress": progress})
 
-    def _publish_status(self, video_id: int, status: str, error: str | None = None) -> None:
+    def _publish_status(
+        self,
+        video_id: int,
+        status: str,
+        error: str | None = None,
+        error_code: str | None = None,
+    ) -> None:
+        # M13/D-13.9: необязательный code (например, model_missing) для CTA в UI.
         self.bus.publish_threadsafe(
-            "video.status", {"video_id": video_id, "status": status, "error": error}
+            "video.status",
+            {
+                "video_id": video_id,
+                "status": status,
+                "error": error,
+                "code": error_code,
+            },
         )
 
     def _publish_queue_state(self) -> None:

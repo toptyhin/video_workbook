@@ -1,19 +1,24 @@
+/* Панель результатов поиска: живёт под .vl-app__viewbar и при активном поиске
+   заменяет .vl-app__list (plans/12 §4.2). Шапка фиксирована, список скроллится
+   внутри, поэтому панель не сжимается и не перекрывается таб-баром. */
 .vl-search {
   display: flex;
   flex-direction: column;
-  min-height: 0;
   flex: 1 1 auto;
-  border-top: 1px solid var(--vl-border);
+  min-height: 0;
+  overflow: hidden;
+  /* Вкладки «Файлы/Метки» уже дают нижнюю границу — лишняя линия сверху не нужна. */
+  border-top: 0;
   background: var(--vl-bg-elevated);
 }
 
 .vl-search__header {
+  flex: 0 0 auto;
   padding: 8px 12px;
   border-bottom: 1px solid var(--vl-border);
   display: flex;
   flex-direction: column;
   gap: 6px;
-  flex: 0 0 auto;
 }
 
 .vl-search__title-row {
@@ -49,6 +54,46 @@
   color: var(--vl-text);
 }
 
+/* Сегментированный переключатель режима: Обычный / Семантика / Гибрид */
+.vl-search__modes {
+  display: flex;
+  gap: 0;
+  align-self: flex-start;
+  border: 1px solid var(--vl-border);
+  border-radius: var(--vl-radius-sm);
+  overflow: hidden;
+}
+
+.vl-search__mode {
+  border: 0;
+  border-right: 1px solid var(--vl-border);
+  border-radius: 0;
+  background: transparent;
+  color: var(--vl-text-muted);
+  padding: 3px 10px;
+  font-size: 11px;
+}
+
+.vl-search__mode:last-child {
+  border-right: 0;
+}
+
+.vl-search__mode:hover:not(:disabled) {
+  background: var(--vl-hover);
+  color: var(--vl-text);
+}
+
+.vl-search__mode--active,
+.vl-search__mode--active:hover:not(:disabled) {
+  background: var(--vl-accent);
+  color: var(--vl-accent-text);
+}
+
+.vl-search__mode:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
 .vl-search__kinds {
   display: flex;
   gap: 6px;
@@ -67,7 +112,44 @@
   color: var(--vl-accent-text);
 }
 
+/* Строка статуса семантического индекса */
+.vl-search__semantic {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: 11px;
+}
+
+.vl-search__semantic-note {
+  color: var(--vl-text);
+  font-size: 11px;
+}
+
+.vl-search__semantic-note--muted {
+  color: var(--vl-text-muted);
+}
+
+.vl-search__reindex {
+  margin-left: auto;
+  padding: 2px 8px;
+  font-size: 11px;
+}
+
+.vl-search__reindex:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.vl-search__hint {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.35;
+  color: var(--vl-text-muted);
+}
+
 .vl-search__status {
+  flex: 0 0 auto;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -75,12 +157,21 @@
   color: var(--vl-text-muted);
 }
 
+/* Список забирает всё оставшееся место и скроллится внутри панели. */
 .vl-search__list {
+  flex: 1 1 auto;
   list-style: none;
   margin: 0;
   padding: 0;
   overflow-y: auto;
   min-height: 0;
+}
+
+/* Пустое состояние/ошибка — по центру оставшейся области. */
+.vl-search > .vl-empty {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
 }
 
 .vl-search__item {
@@ -114,6 +205,18 @@
 
 .vl-search__kind--file { background: var(--vl-accent-soft); color: var(--vl-accent); }
 .vl-search__kind--annotation { background: color-mix(in srgb, var(--vl-success) 15%, transparent); color: var(--vl-success); }
+
+/* Маркер результата, найденного векторным поиском */
+.vl-search__semantic-badge {
+  flex: 0 0 auto;
+  margin-top: 1px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  font-size: 10px;
+  letter-spacing: 0.02em;
+  background: var(--vl-accent-soft);
+  color: var(--vl-accent);
+}
 
 .vl-search__body {
   display: flex;

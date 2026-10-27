@@ -1,26 +1,36 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { vl } from './api/electron';
+import type { EmbeddingProgressPayload, EmbeddingStatePayload } from './api/types';
 import { AnnotationEditor } from './components/annotations/AnnotationEditor';
 import { AnnotationList } from './components/annotations/AnnotationList';
 import { LaunchDialog } from './components/external/LaunchDialog';
 import { HotkeysDialog } from './components/dialogs/HotkeysDialog';
 import { SettingsDialog } from './components/dialogs/SettingsDialog';
 import { FileList } from './components/FileList';
+import { FolderPickerDialog } from './components/FolderPickerDialog';
 import { TimingPanel } from './components/player/TimingPanel';
 import { Timeline } from './components/player/Timeline';
 import { VideoPlayer } from './components/player/VideoPlayer';
 import { SearchResults } from './components/SearchResults';
 import { Sidebar } from './components/sidebar/Sidebar';
 import { Toolbar } from './components/Toolbar';
+import { RecordDialog } from './components/recording/RecordDialog';
+import { RecorderBar } from './components/recording/RecorderBar';
+import { RecordingPreview } from './components/recording/RecordingPreview';
 import { ToastHost } from './components/ui/Toast';
 import { useSSE } from './hooks/useSSE';
 import { t } from './lib/i18n';
 import { useAnnotationsStore } from './state/annotationsStore';
 import { useExternalStore } from './state/externalStore';
+import { useFileBrowserStore } from './state/fileBrowserStore';
 import { useLibraryStore } from './state/libraryStore';
+import { useModelsStore } from './state/modelsStore';
 import { usePlayerStore } from './state/playerStore';
+import { useRecordStore } from './state/recordStore';
+import { useSearchStore, selectSearchActive } from './state/searchStore';
+import { useSummaryStore } from './state/summaryStore';
 import { useTagsStore } from './state/tagsStore';
-import { useUIStore } from './state/uiStore';
+import { useUIStore, type CenterView } from './state/uiStore';
 import './App.css';
 
 const SSE_REFRESH_MS = 500;
@@ -33,6 +43,15 @@ export function App() {
   const previewHeight = useUIStore((state) => state.previewHeight);
   const setPreviewHeight = useUIStore((state) => state.setPreviewHeight);
   const backendReady = useUIStore((state) => state.backendReady);
+  // Активный поиск заменяет список файлов/меток панелью результатов (plans/12 §4.2).
+  const searchActive = useSearchStore(selectSearchActive);
+  const clearSearch = useSearchStore((state) => state.clear);
+  const recordStatus = useRecordStore((state) => state.status);
+  const recordingActive =
+    recordStatus === 'preparing' ||
+    recordStatus === 'recording' ||
+    recordStatus === 'paused' ||
+    recordStatus === 'finalizing';
 
   const videos = useLibraryStore((state) => state.videos);
   const loadVideos = useLibraryStore((state) => state.loadVideos);
@@ -125,6 +144,10 @@ export function App() {
     void loadVideos();
     void useTagsStore.getState().load();
     void useExternalStore.getState().init();
+    // Статус семантического индекса нужен для переключателя режимов поиска.
+    void useSearchStore.getState().loadSemanticStatus();
+    // История адресатов и watched roots для «Переместить/Скопировать в папку» (plans/15 §4.4).
+    void useFileBrowserStore.getState().initialize();
   }, [backendReady, loadVideos]);
 
   // Позиция/состояние внешнего плеера -> playerStore (таймлайн, тайминги, метки)
@@ -144,6 +167,14 @@ export function App() {
       }),
     [],
   );
+
+  // Старт записи ставит встроенный плеер на паузу: он больше не виден в панели,
+  // а его звук иначе попал бы в запись (системный звук/микрофон).
+  useEffect(() => {
+    if (recordStatus !== 'recording') return;
+    const player = usePlayerStore.getState();
+    if (player.playing) player.pause();
+  }, [recordStatus]);
 
   // Переключение видео закрывает внешний плеер другого файла
   useEffect(() => {
@@ -211,8 +242,38 @@ export function App() {
       case 'external.state':
         void useExternalStore.getState().refreshStatus();
         break;
-      case 'settings.changed':
+      case 'embedding.progress': {
+        const payload = event.payload as EmbeddingProgressPayload | null;
+        if (payload && typeof payload.indexed === 'number' && typeof payload.total === 'number') {
+          useSearchStore.getState().applySemanticProgress(payload);
+        }
         break;
+      }
+      case 'embedding.state': {
+        const payload = event.payload as EmbeddingStatePayload | null;
+        useSearchStore.getState().applySemanticState(payload?.state === 'indexing');
+        break;
+      }
+      case 'model.progress':
+      case 'model.state':
+        useModelsStore.getState().applyEvent({ type: event.type, payload: event.payload });
+        useSummaryStore.getState().applyEvent({ type: event.type, payload: event.payload });
+        break;
+      case 'summary.progress':
+      case 'summary.state':
+        useSummaryStore.getState().applyEvent({ type: event.type, payload: event.payload });
+        break;
+      case 'settings.changed': {
+        const payload = event.payload as { keys?: string[] } | null;
+        const keys = payload?.keys ?? [];
+        if (keys.length === 0 || keys.some((key) => key.startsWith('summary.'))) {
+          void useSummaryStore.getState().loadSettings(true);
+        }
+        if (keys.length === 0 || keys.some((key) => key.startsWith('models.'))) {
+          void useModelsStore.getState().load();
+        }
+        break;
+      }
       default:
         break;
     }
@@ -269,6 +330,15 @@ export function App() {
     [openVideo, setCenterView],
   );
 
+  // Вкладка «Файлы/Метки» при активном поиске закрывает результаты и возвращает список.
+  const handleCenterView = useCallback(
+    (view: CenterView) => {
+      setCenterView(view);
+      clearSearch();
+    },
+    [clearSearch, setCenterView],
+  );
+
   return (
     <div className="vl-app">
       <Toolbar />
@@ -277,14 +347,13 @@ export function App() {
           <Sidebar refreshToken={refreshToken} />
         </div>
         <main className="vl-app__main">
-          <SearchResults />
           <div className="vl-app__viewbar" role="tablist" aria-label={t('app.name')}>
             <button
               type="button"
               role="tab"
               aria-selected={centerView === 'files'}
               className={centerView === 'files' ? 'is-active' : ''}
-              onClick={() => setCenterView('files')}
+              onClick={() => handleCenterView('files')}
             >
               {t('sidebar.tabFiles')}
             </button>
@@ -293,18 +362,24 @@ export function App() {
               role="tab"
               aria-selected={centerView === 'annotations'}
               className={centerView === 'annotations' ? 'is-active' : ''}
-              onClick={() => setCenterView('annotations')}
+              onClick={() => handleCenterView('annotations')}
             >
               {t('annotations.list')}
             </button>
           </div>
-          <div className="vl-app__list">
-            {centerView === 'files' ? (
-              <FileList />
-            ) : (
-              <AnnotationList onOpen={openAnnotation} />
-            )}
-          </div>
+          {/* Результаты живут ПОД полосой вкладок и заменяют список файлов/меток,
+              получая всё оставшееся место (исправление перекрытия, plans/12 §4.2). */}
+          {searchActive ? (
+            <SearchResults />
+          ) : (
+            <div className="vl-app__list">
+              {centerView === 'files' ? (
+                <FileList />
+              ) : (
+                <AnnotationList onOpen={openAnnotation} />
+              )}
+            </div>
+          )}
           <div
             className="vl-app__splitter"
             role="separator"
@@ -324,18 +399,24 @@ export function App() {
           <section
             className="vl-app__preview"
             style={{ height: previewHeight }}
-            aria-label={t('player.noVideo')}
+            aria-label={recordingActive ? t('recording.previewLabel') : t('player.noVideo')}
           >
             <div className="vl-app__player">
-              <VideoPlayer
-                videoId={selectedVideoId}
-                video={video}
-                onShowInFolder={() => {
-                  if (video) void vl().revealInExplorer(video.path);
-                }}
-              />
-              {selectedVideoId !== null && (
-                <Timeline videoId={selectedVideoId} durationMs={video?.duration_ms ?? undefined} />
+              {recordingActive ? (
+                <RecordingPreview />
+              ) : (
+                <>
+                  <VideoPlayer
+                    videoId={selectedVideoId}
+                    video={video}
+                    onShowInFolder={() => {
+                      if (video) void vl().revealInExplorer(video.path);
+                    }}
+                  />
+                  {selectedVideoId !== null && (
+                    <Timeline videoId={selectedVideoId} durationMs={video?.duration_ms ?? undefined} />
+                  )}
+                </>
               )}
             </div>
             <TimingPanel videoId={selectedVideoId} video={video} />
@@ -344,6 +425,9 @@ export function App() {
       </div>
       <AnnotationEditor />
       <LaunchDialog />
+      <FolderPickerDialog />
+      <RecordDialog />
+      <RecorderBar />
       <SettingsDialog />
       <HotkeysDialog />
       <ToastHost />

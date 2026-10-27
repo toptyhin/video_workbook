@@ -1,4 +1,5 @@
 export const STORAGE_KEYS = {
+  detailLevel: 'vl.ui.detailLevel',
   theme: 'vl.theme',
   sidebarWidth: 'vl.ui.sidebarWidth',
   sidebarTab: 'vl.ui.sidebarTab',
@@ -9,6 +10,9 @@ export const STORAGE_KEYS = {
   volume: 'vl.player.volume',
   positions: 'vl.playback.positions',
   tagsExpanded: 'vl.tags.expanded',
+  searchMode: 'vl.search.mode',
+  viewMode: 'vl.ui.viewMode',
+  gridColumns: 'vl.ui.gridColumns',
 } as const;
 
 export const ANNOTATION_COLORS = [

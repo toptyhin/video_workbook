@@ -1,31 +1,63 @@
 import { create } from 'zustand';
 import { api } from '../api/client';
-import type { SearchItem, SearchScope } from '../api/types';
-import { SEARCH_DEBOUNCE_MS } from '../lib/constants';
+import type {
+  EmbeddingProgressPayload,
+  SearchItem,
+  SearchMode,
+  SearchScope,
+  SemanticStatus,
+} from '../api/types';
+import { SEARCH_DEBOUNCE_MS, STORAGE_KEYS } from '../lib/constants';
+import { t } from '../lib/i18n';
+import { readStorage, writeStorage } from '../lib/storage';
 import { useUIStore } from './uiStore';
 
-export type { SearchScope };
+export type { SearchMode, SearchScope };
+
+/** Порядок режимов в переключателе «Обычный / Семантика / Гибрид». */
+export const SEARCH_MODES: readonly SearchMode[] = ['fts', 'semantic', 'hybrid'];
+
+const RESULTS_LIMIT = 50;
+/** UI default — hybrid (API default остаётся fts, plans/12 §1). */
+const DEFAULT_MODE: SearchMode = 'hybrid';
+
+function readMode(): SearchMode {
+  const stored = readStorage<SearchMode>(STORAGE_KEYS.searchMode, DEFAULT_MODE);
+  return SEARCH_MODES.includes(stored) ? stored : DEFAULT_MODE;
+}
 
 interface SearchState {
   query: string;
   scope: SearchScope;
+  /** Выбранный пользователем режим; переживает перезагрузку (localStorage). */
+  mode: SearchMode;
+  /** Фактический режим последнего ответа (`query.mode_used`). */
+  modeUsed: SearchMode | null;
   results: SearchItem[];
   total: number;
   loading: boolean;
   error: string | null;
   tookMs: number | null;
+  /** Статус семантического индекса (GET /api/search/semantic/status). */
+  semantic: SemanticStatus | null;
+  semanticLoading: boolean;
 
   setQuery: (query: string) => void;
   setScope: (scope: SearchScope) => void;
+  setMode: (mode: SearchMode) => void;
   runSearch: () => Promise<void>;
   /** Перезапустить поиск (например, после SSE `annotations.changed`). */
   refresh: () => Promise<void>;
   clear: () => void;
   /** Открыть видео результата и перейти на таймкод. */
   openResult: (item: SearchItem) => void;
+  loadSemanticStatus: () => Promise<void>;
+  reindexSemantic: (force?: boolean) => Promise<void>;
+  /** SSE `embedding.progress`: обновить счётчики без сетевого запроса. */
+  applySemanticProgress: (payload: EmbeddingProgressPayload) => void;
+  /** SSE `embedding.state`: флаг индексации; при `idle` — обновить статус. */
+  applySemanticState: (indexing: boolean) => void;
 }
-
-const RESULTS_LIMIT = 50;
 
 function errorText(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
@@ -33,6 +65,11 @@ function errorText(error: unknown): string {
 
 function isAbortError(error: unknown): boolean {
   return typeof error === 'object' && error !== null && (error as { name?: string }).name === 'AbortError';
+}
+
+/** Активен ли поиск: панель результатов показывается вместо списка файлов. */
+export function selectSearchActive(state: Pick<SearchState, 'query' | 'results'>): boolean {
+  return state.query.trim().length > 0 || state.results.length > 0;
 }
 
 let debounceTimer: number | undefined;
@@ -50,11 +87,15 @@ function cancelDebounce(): void {
 export const useSearchStore = create<SearchState>((set, get) => ({
   query: '',
   scope: 'all',
+  mode: readMode(),
+  modeUsed: null,
   results: [],
   total: 0,
   loading: false,
   error: null,
   tookMs: null,
+  semantic: null,
+  semanticLoading: false,
 
   setQuery: (query) => {
     set({ query });
@@ -63,7 +104,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
     controller = null;
     searchSeq += 1;
     if (query.trim().length === 0) {
-      set({ results: [], total: 0, loading: false, error: null, tookMs: null });
+      set({ results: [], total: 0, loading: false, error: null, tookMs: null, modeUsed: null });
       return;
     }
     debounceTimer = window.setTimeout(() => {
@@ -77,8 +118,15 @@ export const useSearchStore = create<SearchState>((set, get) => ({
     if (get().query.trim().length > 0) void get().runSearch();
   },
 
+  setMode: (mode) => {
+    const changed = get().mode !== mode;
+    writeStorage(STORAGE_KEYS.searchMode, mode);
+    set({ mode });
+    if (changed && get().query.trim().length > 0) void get().runSearch();
+  },
+
   runSearch: async () => {
-    const { query, scope } = get();
+    const { query, scope, mode } = get();
     if (query.trim().length === 0) return;
     cancelDebounce();
     controller?.abort();
@@ -87,13 +135,29 @@ export const useSearchStore = create<SearchState>((set, get) => ({
     const currentSeq = ++searchSeq;
     set({ loading: true, error: null });
     try {
-      const response = await api.search({ q: query, scope, limit: RESULTS_LIMIT }, currentController.signal);
+      const response = await api.search(
+        { q: query, scope, mode, limit: RESULTS_LIMIT },
+        currentController.signal,
+      );
       if (currentSeq !== searchSeq) return;
+      const echo = response.query;
+      const echoSemantic = echo.semantic ?? null;
+      // Если бэкенд не прислал эхо семантики (старая версия) — не затираем
+      // статус, загруженный через /api/search/semantic/status.
+      const semantic = echoSemantic ?? get().semantic;
+      const modeUsed = echo.mode_used ?? mode;
+      // Семантика недоступна (нет модели/onnxruntime) → нормализуем в fts,
+      // чтобы выбранный режим соответствовал фактическому (plans/12 §4.1).
+      const normalizedMode =
+        echoSemantic && !echoSemantic.available && get().mode !== 'fts' ? 'fts' : get().mode;
       set({
         results: response.items,
         total: response.total,
         loading: false,
-        tookMs: response.query.took_ms ?? null,
+        tookMs: echo.took_ms ?? null,
+        semantic,
+        modeUsed,
+        mode: normalizedMode,
       });
     } catch (error) {
       if (currentSeq !== searchSeq || isAbortError(error)) return;
@@ -111,7 +175,15 @@ export const useSearchStore = create<SearchState>((set, get) => ({
     controller?.abort();
     controller = null;
     searchSeq += 1;
-    set({ query: '', results: [], total: 0, loading: false, error: null, tookMs: null });
+    set({
+      query: '',
+      results: [],
+      total: 0,
+      loading: false,
+      error: null,
+      tookMs: null,
+      modeUsed: null,
+    });
   },
 
   openResult: (item) => {
@@ -125,5 +197,59 @@ export const useSearchStore = create<SearchState>((set, get) => ({
     if (startMs !== undefined) {
       window.dispatchEvent(new CustomEvent('vl:seek', { detail: { videoId, ms: startMs } }));
     }
+  },
+
+  loadSemanticStatus: async () => {
+    if (get().semanticLoading) return;
+    set({ semanticLoading: true });
+    try {
+      const semantic = await api.semanticStatus();
+      const normalizedMode = !semantic.available && get().mode !== 'fts' ? 'fts' : get().mode;
+      set({ semantic, semanticLoading: false, mode: normalizedMode });
+    } catch {
+      // Семантика — опциональная подсистема: её недоступность не ломает поиск.
+      set({ semanticLoading: false });
+    }
+  },
+
+  reindexSemantic: async (force = false) => {
+    if (get().semanticLoading) return;
+    set({ semanticLoading: true });
+    try {
+      const status = await api.semanticReindex(force);
+      set({ semantic: status, semanticLoading: false });
+      useUIStore.getState().pushToast({ kind: 'info', message: t('search.reindexStarted') });
+    } catch (error) {
+      set({ semanticLoading: false });
+      useUIStore.getState().pushToast({
+        kind: 'error',
+        message: t('search.reindexFailed', { message: errorText(error) }),
+      });
+    }
+  },
+
+  applySemanticProgress: (payload) => {
+    const current = get().semantic;
+    if (!current) {
+      void get().loadSemanticStatus();
+      return;
+    }
+    set({
+      semantic: {
+        ...current,
+        indexing: true,
+        indexed_segments:
+          typeof payload.indexed === 'number' ? payload.indexed : current.indexed_segments,
+        total_segments:
+          typeof payload.total === 'number' ? payload.total : current.total_segments,
+      },
+    });
+  },
+
+  applySemanticState: (indexing) => {
+    const current = get().semantic;
+    if (current) set({ semantic: { ...current, indexing } });
+    // Индексация завершилась (или только началась) — подтягиваем точные счётчики.
+    void get().loadSemanticStatus();
   },
 }));

@@ -19,7 +19,7 @@ import './VideoPlayer.css';
 /** Минимум данных о видео, нужный плееру (совместимо с `api/types.Video`). */
 export type PlayerVideoInfo = Pick<
   Video,
-  'id' | 'path' | 'title' | 'duration_ms' | 'status' | 'progress' | 'error'
+  'id' | 'path' | 'title' | 'duration_ms' | 'status' | 'progress' | 'error' | 'error_code'
 >;
 
 export interface VideoPlayerProps {

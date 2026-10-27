@@ -1,15 +1,19 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { act, fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 
 vi.mock('../api/client', () => ({
-  api: { search: vi.fn() },
+  api: { search: vi.fn(), semanticStatus: vi.fn(), semanticReindex: vi.fn() },
 }));
 
-import type { SearchItem } from '../api/types';
+import { api } from '../api/client';
+import type { SearchItem, SearchResponse, SemanticStatus } from '../api/types';
 import { t } from '../lib/i18n';
 import { useSearchStore } from '../state/searchStore';
 import { useUIStore } from '../state/uiStore';
 import { SearchResults } from './SearchResults';
+
+const search = vi.mocked(api.search);
+const semanticReindex = vi.mocked(api.semanticReindex);
 
 const segmentItem: SearchItem = {
   kind: 'segment',
@@ -22,6 +26,8 @@ const segmentItem: SearchItem = {
   snippet_html: 'производные <mark>функции</mark>',
   score: 2.1,
 };
+
+const semanticSegmentItem: SearchItem = { ...segmentItem, semantic: true };
 
 const fileItem: SearchItem = {
   kind: 'file',
@@ -48,18 +54,76 @@ const annotationItem: SearchItem = {
   score: 3.05,
 };
 
+const semanticAvailable: SemanticStatus = {
+  available: true,
+  model: 'multilingual-e5-small',
+  dim: 384,
+  indexed_segments: 10,
+  total_segments: 10,
+  indexing: false,
+  autoindex: true,
+  detail: null,
+};
+
+const semanticUnavailable: SemanticStatus = {
+  ...semanticAvailable,
+  available: false,
+  indexed_segments: 0,
+  detail: 'модель эмбеддингов не найдена',
+};
+
+// jsdom в этом окружении не даёт localStorage — подменяем in-memory Storage.
+function installMemoryStorage(): void {
+  const data = new Map<string, string>();
+  const storage: Storage = {
+    get length(): number {
+      return data.size;
+    },
+    clear: () => data.clear(),
+    getItem: (key: string) => data.get(key) ?? null,
+    key: (index: number) => Array.from(data.keys())[index] ?? null,
+    removeItem: (key: string) => {
+      data.delete(key);
+    },
+    setItem: (key: string, value: string) => {
+      data.set(key, value);
+    },
+  };
+  Object.defineProperty(window, 'localStorage', {
+    value: storage,
+    configurable: true,
+    writable: true,
+  });
+}
+
+function makeResponse(items: SearchItem[]): SearchResponse {
+  return {
+    query: { raw: 'урок', fts: 'урок', scope: 'all', prefixes: { tags: [], file: null } },
+    total: items.length,
+    items,
+  };
+}
+
 beforeEach(() => {
   vi.clearAllMocks();
+  installMemoryStorage();
+  window.localStorage.clear();
   useSearchStore.setState({
     query: 'урок',
     scope: 'all',
+    mode: 'hybrid',
+    modeUsed: null,
     results: [],
     total: 0,
     loading: false,
     error: null,
     tookMs: null,
+    semantic: null,
+    semanticLoading: false,
   });
   useUIStore.setState({ selectedVideoId: null, toasts: [] });
+  search.mockResolvedValue(makeResponse([]));
+  semanticReindex.mockResolvedValue({ ...semanticAvailable, indexing: true, state: 'indexing' });
 });
 
 describe('SearchResults', () => {
@@ -158,5 +222,93 @@ describe('SearchResults', () => {
 
     expect(useSearchStore.getState().query).toBe('');
     expect(useSearchStore.getState().results).toEqual([]);
+  });
+
+  it('переключатель режимов: aria-pressed и повторный поиск с выбранным режимом', async () => {
+    render(<SearchResults />);
+
+    expect(screen.getByRole('button', { name: t('search.modeHybrid') })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+    expect(screen.getByRole('button', { name: t('search.modeFts') })).toHaveAttribute(
+      'aria-pressed',
+      'false',
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: t('search.modeFts') }));
+
+    expect(useSearchStore.getState().mode).toBe('fts');
+    expect(screen.getByRole('button', { name: t('search.modeFts') })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+    await waitFor(() =>
+      expect(search).toHaveBeenCalledWith(
+        expect.objectContaining({ q: 'урок', mode: 'fts' }),
+        expect.any(AbortSignal),
+      ),
+    );
+  });
+
+  it('дизейблит «Семантика»/«Гибрид» и показывает причину недоступности', () => {
+    useSearchStore.setState({ mode: 'fts', semantic: semanticUnavailable });
+    const reason = t('search.semanticUnavailable', { detail: semanticUnavailable.detail as string });
+
+    render(<SearchResults />);
+
+    expect(screen.getByRole('button', { name: t('search.modeSemantic') })).toBeDisabled();
+    expect(screen.getByRole('button', { name: t('search.modeHybrid') })).toBeDisabled();
+    expect(screen.getByRole('button', { name: t('search.modeSemantic') })).toHaveAttribute(
+      'title',
+      reason,
+    );
+    expect(screen.getByRole('button', { name: t('search.modeFts') })).toBeEnabled();
+    expect(screen.getByText(reason)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: t('search.reindex') })).not.toBeInTheDocument();
+  });
+
+  it('показывает «Индексируется: X/Y» и переиндексацию', async () => {
+    useSearchStore.setState({ semantic: { ...semanticAvailable, indexing: true, indexed_segments: 3, total_segments: 8 } });
+    const { rerender } = render(<SearchResults />);
+
+    expect(
+      screen.getByText(t('search.semanticIndexing', { indexed: 3, total: 8 })),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: t('search.reindex') })).toBeDisabled();
+
+    act(() => {
+      useSearchStore.setState({
+        semantic: { ...semanticAvailable, indexing: false, indexed_segments: 8, total_segments: 8 },
+      });
+    });
+    rerender(<SearchResults />);
+
+    expect(screen.getByRole('button', { name: t('search.reindex') })).toBeEnabled();
+    fireEvent.click(screen.getByRole('button', { name: t('search.reindex') }));
+
+    await waitFor(() => expect(semanticReindex).toHaveBeenCalledTimes(1));
+    await waitFor(() =>
+      expect(useSearchStore.getState().semantic?.indexing).toBe(true),
+    );
+  });
+
+  it('показывает чип «семантика» только для semantic=true', () => {
+    useSearchStore.setState({ results: [semanticSegmentItem], total: 1 });
+    const { unmount } = render(<SearchResults />);
+    expect(screen.getByText(t('search.semanticBadge'))).toBeInTheDocument();
+    unmount();
+
+    useSearchStore.setState({ results: [segmentItem], total: 1 });
+    render(<SearchResults />);
+    expect(screen.queryByText(t('search.semanticBadge'))).not.toBeInTheDocument();
+  });
+
+  it('показывает подсказку о scope, где семантика работает только по сегментам', () => {
+    useSearchStore.setState({ mode: 'semantic', scope: 'files', semantic: semanticAvailable });
+
+    render(<SearchResults />);
+
+    expect(screen.getByText(t('search.semanticScopeHint'))).toBeInTheDocument();
   });
 });

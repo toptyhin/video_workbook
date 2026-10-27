@@ -1,9 +1,9 @@
-import { app, BrowserWindow, dialog, ipcMain, session, shell } from 'electron';
+import { app, BrowserWindow, desktopCapturer, dialog, ipcMain, session, shell } from 'electron';
 import os from 'node:os';
 import path from 'node:path';
 import fs from 'node:fs';
 import { BackendManager, ensureDir } from './backend';
-import { IPC, type BackendStatus } from './ipc-channels';
+import { IPC, type BackendStatus, type CaptureSourceInfo } from './ipc-channels';
 import { Logger } from './logger';
 
 const repoRoot = path.join(__dirname, '..');
@@ -49,6 +49,16 @@ function sendStatus(status: BackendStatus): void {
   mainWindow?.webContents.send(IPC.backendStatus, status);
 }
 
+/** M11: захват экрана/микрофона разрешён только локальному SPA (backend/dev Vite). */
+function isLocalAppOrigin(origin: string): boolean {
+  try {
+    const url = new URL(origin);
+    return url.protocol === 'http:' && (url.hostname === '127.0.0.1' || url.hostname === 'localhost');
+  } catch {
+    return false;
+  }
+}
+
 function hardenSession(): void {
   const devUrl = process.env.VL_DEV_URL;
   const csp = devUrl
@@ -62,6 +72,22 @@ function hardenSession(): void {
         'Referrer-Policy': ['no-referrer'],
       },
     });
+  });
+
+  // getUserMedia (desktopCapturer + microphone) требует выдачи media/display-capture.
+  // Остальные permission'ы остаются с прежним поведением (разрешать).
+  session.defaultSession.setPermissionRequestHandler((webContents, permission, callback, details) => {
+    if (permission === 'media' || permission === 'display-capture') {
+      const requestingUrl = details.requestingUrl || webContents.getURL();
+      if (isLocalAppOrigin(requestingUrl)) {
+        callback(true);
+      } else {
+        logger.warn(`permission denied: ${permission} from ${requestingUrl}`);
+        callback(false);
+      }
+      return;
+    }
+    callback(true);
   });
 }
 
@@ -220,6 +246,27 @@ function registerIpc(): void {
     dataDir,
     logsDir,
   }));
+
+  // M11: экраны/окна + PNG-миниатюры для RecordDialog.
+  ipcMain.handle(IPC.captureSources, async (): Promise<CaptureSourceInfo[]> => {
+    try {
+      const sources = await desktopCapturer.getSources({
+        types: ['screen', 'window'],
+        thumbnailSize: { width: 320, height: 180 },
+        fetchWindowIcons: false,
+      });
+      return sources.map((source) => ({
+        id: source.id,
+        name: source.name,
+        type: source.id.startsWith('screen:') ? 'screen' : 'window',
+        display_id: source.display_id || undefined,
+        thumbnail_data_url: source.thumbnail.toDataURL(),
+      }));
+    } catch (error) {
+      logger.error(`getCaptureSources failed: ${String(error)}`);
+      return [];
+    }
+  });
 
   ipcMain.on(IPC.log, (_event, level: string, message: string) => {
     const text = `[renderer] ${String(message)}`;

@@ -27,17 +27,21 @@
 | **A2** | Безопасность окна: `contextIsolation: true`, `nodeIntegration: false`, `sandbox: true`, `webSecurity: true`. Renderer общается с ОС только через `window.vl` (preload + `contextBridge`). |
 | **A3** | Handshake: Electron генерирует `VL_TOKEN` (`crypto.randomBytes(32).toString('hex')`), передаёт через env `VL_TOKEN`, `VL_DATA_DIR`, `VL_RESOURCES_DIR`. Бэкенд слушает `127.0.0.1:0` и печатает в stdout одну строку `VL_READY:{"port":<n>}`; Electron ждёт её ≤ 15 с. |
 | **A4** | Авторизация: middleware требует `X-VL-Token` для всех `/api/*` (включая `/api/health`); несовпадение → `401 {"detail":"unauthorized"}`. **Исключение (ратифицировано):** query-параметр `?token=` допускается только для `/api/events` (`EventSource`) и `/api/videos/{id}/stream` (`<video src>` не умеет заголовки). Превью `/thumb` грузится через `fetch` + `blob:`-URL (M2), query-токен для него не нужен. Токен не пишется в логи, query вырезается из access-логов; для media-ответов — `Referrer-Policy: no-referrer`. |
-| **A5** | События: SSE (`text/event-stream`, библиотека `sse-starlette`), канал `/api/events`. Конверт: `event: <type>` + `data: {"type": "<type>", "ts": "<ISO-8601 UTC>", "payload": {…}}`; heartbeat 15 с. Типы: `video.status`, `video.progress`, `queue.state`, `folder.scanned`, `tags.changed`, `annotations.changed`, `settings.changed`, `backend.error`. Payload’ы — `plans/01` §4.1, `plans/02` §4.3, `plans/03` §4.3, `plans/06` §4.1, `plans/07` §4.4, `plans/09` §4.1. |
+| **A5** | События: SSE (`text/event-stream`, библиотека `sse-starlette`), канал `/api/events`. Конверт: `event: <type>` + `data: {"type": "<type>", "ts": "<ISO-8601 UTC>", "payload": {…}}`; heartbeat 15 с. Типы: `video.status`, `video.progress`, `queue.state`, `folder.scanned`, `tags.changed`, `annotations.changed`, `settings.changed`, `backend.error`, `recording.finished` (M11: `{video_id,title,path,duration_ms,size_bytes}`), `embedding.progress` (M12: `{indexed,total,percent}`), `embedding.state` (M12: `{state:"indexing"|"idle", detail}`), `model.progress` (M13: `{model_id,status,bytes_received,total_bytes,percent}`), `model.state` (M13: `{model_id,status,error,error_code?}`), `summary.progress` (M14: `{video_id,stage,done,total,percent}`), `summary.state` (M14: `{video_id,state,detail?}`). Payload’ы — `plans/01` §4.1, `plans/02` §4.3, `plans/03` §4.3, `plans/06` §4.1, `plans/07` §4.4, `plans/09` §4.1. |
 | **A6** | Транскрипция: `ProcessPoolExecutor(max_workers=1)` над `faster-whisper`; event loop FastAPI не блокируется. Очередь FIFO в памяти, статусы — в `videos.status`. На старте `processing` → `queued` (crash-recovery). Отмена — через `multiprocessing.Event` + `terminate()` с grace 3 с. |
 | **A7** | БД: SQLite WAL (`journal_mode=WAL`, `synchronous=NORMAL`, `foreign_keys=ON`), соединение на запрос, `timeout=30`. Миграции forward-only, `PRAGMA user_version`, файлы `backend/app/migrations/NNN_*.sql`, применяются на старте. |
 | **A8** | Поиск: FTS5 `unicode61 remove_diacritics 2` для `segments` и `annotations` (external content + триггеры). Пользовательский запрос санитизируется; `AND/OR/NOT` и кавычки допускаются, прочий синтаксис FTS5 — нет. Сниппеты — через `snippet()` с маркерами `<mark>…</mark>`. |
 | **A9** | Единый поиск: `GET /api/search` c `scope=all|files|segments|annotations`; элементы результата различаются полем `kind`. Это точка расширения для поиска по пользовательским меткам (требование пользователя). |
 | **A10** | Сборка релиза — **только** в контейнере `ubuntu:22.04` (Docker): PyInstaller `--onedir`, electron-builder. Dev-машина (Gentoo, Python 3.14, Node 26) для релиза не используется: glibc/ffmpeg-бинарь должны быть совместимы с целевой Ubuntu 22.04+. |
-| **A11** | Ресурсы: статические `ffmpeg`+`ffprobe` (johnvansickle; лицензия — решается в M8: LGPL-сборка либо GPL + `SOURCE-OFFER`/тексты) и модель `faster-whisper small` (CTranslate2, INT8) кладутся в `extraResources` вместе с `THIRD-PARTY-NOTICES.md`; в рантайме путь берётся из `VL_RESOURCES_DIR`. В пакет кладётся **только** модель `small` (офлайн-размер); остальные модели в UI видны, но недоступны с пояснением. Сеть в рантайме не используется. |
+| **A11** | Ресурсы: статические `ffmpeg`+`ffprobe` (johnvansickle; лицензия — решается в M8: LGPL-сборка либо GPL + `SOURCE-OFFER`/тексты) и модель `faster-whisper small` (CTranslate2, INT8) кладутся в `extraResources` вместе с `THIRD-PARTY-NOTICES.md`; в рантайме путь берётся из `VL_RESOURCES_DIR`. В пакет кладётся **только** модель `small` (офлайн-размер); остальные модели в UI видны, но недоступны с пояснением. Сеть в рантайме не используется. **Заменено A18 (M13):** модели не входят в бандл и загружаются по явному действию пользователя; сеть — только для этой загрузки. |
 | **A12** | Настройки: БД-таблица `settings(key TEXT PRIMARY KEY, value TEXT)`; UI-состояние (ширины панелей, сворачивание таймингов, тема) — `localStorage`, ключи с префиксом `vl.`. |
 | **A13** | Логи: `logs/backend.log` (RotatingFileHandler, 10 МБ × 5, INFO), `logs/electron.log`; ошибки рендерера уходят в main через IPC `vl:log`. |
 | **A14** | Тесты: backend — `pytest` (+ `httpx.ASGITransport`, tmp-БД); frontend — `vitest` + `@testing-library/react`; e2e-smoke — Playwright `_electron` (M1, M5, M7). Приёмка — `scripts/acceptance.sh` + чек-лист `docs/acceptance.md`. |
 | **A15** | Язык UI — русский, строки в `frontend/src/lib/i18n/ru.json`, доступ через `t('ключ')`. Время в БД/API — целые миллисекунды; даты — ISO-8601 UTC. |
+| **A16** | Запись экрана/окна: захват — Electron `desktopCapturer` + `getUserMedia({chromeMediaSource:'desktop'})` в renderer; хранение — **WebM (VP9+Opus)** для нативного воспроизведения без внешнего плеера; звук — микрофон в WebM, системный звук — `ffmpeg -f pulse` на backend (Linux) с миксом при финализации; чанки идут на `/api/recordings/{id}/chunks`, финализация — `ffmpeg -c copy` → запись в `videos`. Контракт — `plans/11-screen-recording.md`. |
+| **A17** | Семантический поиск: ONNX int8 **multilingual-e5-small** (384d, e5-префиксы `query:`/`passage:`), mean-pooling+L2; векторы — `segment_embeddings` BLOB float32 (миграция 009), брутфорс-косинус numpy + кэш (без sqlite-vec); индексация после транскрипции/фон/`reindex`; API `mode=fts|semantic|hybrid` (default fts), hybrid — RRF k=60. Контракт — `plans/12-semantic-search.md`. |
+| **A18** | **Модели (M13).** Модели (whisper tiny/base/small/medium, e5, суммаризатор) **не поставляются в бандле**: реестр `backend/app/model_manifest.json` (pinned revision, SHA-256, лицензия), хранение в `$VL_DATA_DIR/models/`, разрешение data dir → legacy `resources/models` (read-only), загрузка/отмена/удаление/импорт из «Настройки → Модели», статусы/прогресс через SSE. Сеть — только по явному действию пользователя (HTTPS HF или зеркало), никаких фоновых запросов; `models.offline`/`VL_OFFLINE=1` запрещает загрузку, импорт из файла остаётся. `TARGET.md` §10 пересматривается в этой части. Контракт — `plans/13-model-store.md`. |
+| **A19** | **Саммари (M14).** Локальная LLM через **llama.cpp** (pinned CPU-runtime в `resources/llama/`, GGUF-модель из реестра M13), model-agnostic; иерархическое смысловое дерево: OUTLINE всего текста (при переполнении — чанки + merge верхнеуровневого саммари) → рекурсивный SPLIT на подблоки до строк; уровни детализации **динамические** по фактической глубине дерева (0 — дословные сегменты, 1..max_level — блоки саммари, max_level — корневое саммари); JSON-схема/грамматика, вырезание `<think>`; кэш `summary_chunks`/`summary_levels` (source_hash + model + prompt_version), фон `SummaryManager`, SSE. Шкала детализации — вертикальный блок в правой части панели таймингов. Рекомендованная/дефолтная — `KoarAI/LFM2.5-350M-Thinking` (community-GGUF, официальной модели нет; в UI значок «Рекомендованная» без предупреждений); альтернатива — `Qwen2.5-0.5B-Instruct` (ru, Apache-2.0); обе устанавливаются одновременно и переключаются настройкой `summary.model`. Контракт — `plans/14-summary-lfm.md`. |
 
 ## 3. Структура репозитория
 
@@ -130,6 +134,9 @@ agent_digikam/                    # корень проекта
 | GET | `/api/videos/{id}/thumb` | **M2** (базовый кэш), M5 (`?at_ms=`) | JPEG-превью; кэш `cache/thumbs`; авторизация — `fetch`+`blob` (A4) |
 | GET | `/api/videos/{id}/segments` | M5 | `{segments:[…, tag_ids], annotations:[…]}` |
 | GET | `/api/search` | M4 | `q`, `scope`, `video_id`, `tag_ids`, `tag_mode`, `include_children`, `colors`, `limit` (20, max 100), `offset`; ответ включает `query.took_ms` |
+| GET | `/api/search` (M12) | M12 | дополнительно `mode=fts\|semantic\|hybrid` (API default `fts`); `query.mode`, `query.mode_used`, `query.semantic`; semantic/hybrid — только по сегментам |
+| GET | `/api/search/semantic/status` | M12 | `{available, model, dim, indexed_segments, total_segments, indexing, autoindex, detail}` |
+| POST | `/api/search/semantic/reindex` | M12 | `{force?:bool}` → `202 {state:"indexing", …status}`; фоновая индексация |
 | GET | `/api/tags/tree` | M6 | дерево + счётчики `{files, segments, annotations, children}`, `?include_counts=1` |
 | POST/PATCH/DELETE | `/api/tags`, `/api/tags/{id}` | M6 | CRUD; PATCH принимает `{name?, color?, parent_id?}` (перемещение) |
 | GET | `/api/tags/export`, POST `/api/tags/import` | M6 | JSON, `?mode=merge\|replace&dry_run=1` |
@@ -142,12 +149,26 @@ agent_digikam/                    # корень проекта
 | POST | `/api/annotations/bulk` | M7 | массовое создание (drag-диапазон по строкам) |
 | GET | `/api/annotations/export`, POST `/api/annotations/import` | M7 | JSON (`version:1`), `mode=merge\|replace` |
 | GET | `/api/events` | M3 | SSE, `?token=…`; конверт — A5 |
+| GET | `/api/videos/{id}/summary` | M14 | `{video_id,state,levels:{"1".."4":{ready,blocks,created_at}},progress,model,detail,error_code}` |
+| POST | `/api/videos/{id}/summary` | M14 | `{level?:1..4,force?:bool}` → `202`; `409 transcription_not_ready\|model_missing\|summary_disabled`; `400 invalid_level` |
+| DELETE | `/api/videos/{id}/summary` | M14 | `204`; `409 generation_in_progress` |
 | GET/POST/DELETE | `/api/folders`, `/api/folders/{id}` | M2 | отслеживаемые корни `{items:[{id,path,added_at,total,done}]}` |
 | GET | `/api/fs/list` | M2 | `?path=`; `{path,parent,entries:[{name,path,mtime_ms,watched}]}` — только каталоги внутри watched-корней |
+| POST | `/api/videos/transfer` | **V5** | `{action:"move"\|"copy", ids:[int] (≤500), destination:"/abs/dir"}`; destination — внутри watched-корней; ответ `200 {action,destination,items:[{id,ok,code,detail,path,new_id}],moved,copied,failed,recent_destinations}`; ошибки запроса `400 invalid_action\|invalid_ids\|invalid_path`, `403 forbidden_path`; per-item `not_found\|missing_file\|same_folder\|target_exists\|move_failed\|copy_failed\|index_error` |
 | GET/PATCH | `/api/settings` | M1/M9 | плоский объект ключей (§4.5); PATCH — частичный объект |
 | GET | `/api/queue` | M3 | `{current:{video_id,title,progress}\|null, pending:[{video_id,position}], total}` |
-| GET | `/api/models` | M9 | `{items:[{name,path,size_bytes,bundled,quantized}], total}` |
-| POST | `/api/maintenance/clear-model-cache` | M9 | `{removed_bytes, removed_files}` |
+| GET | `/api/models` | **M13** (заменяет M9) | `{items:[{id,kind,label,installed,bundled,status,revision,update_available,size_bytes,progress:{bytes_received,total_bytes,percent},license,recommended,default,meta,error,error_code}], total_installed_bytes, total_available_bytes, models_dir, offline}` |
+| POST | `/api/models/{id}/download`, `/cancel` | M13 | `202`/`200`; `403 offline_mode`; `409 already_installed\|download_in_progress\|insufficient_disk` |
+| DELETE | `/api/models/{id}` | M13 | `204`; `409 model_in_use\|model_bundled` |
+| POST | `/api/models/{id}/import` | M13 | `{path}` (каталог/архив) → `202`; `400 import_path_invalid\|archive_unsafe\|checksum_mismatch` |
+| POST | `/api/maintenance/clear-model-cache` | M9 → **удалён в M13** | роль выполняет `DELETE /api/models/{id}` |
+| GET | `/api/recordings/capabilities` | M11 | `{system_audio:{available,detail}, max_chunk_bytes}` |
+| POST | `/api/recordings` | M11 | старт сессии записи экрана/окна → `201 {recording_id, system_audio}` |
+| POST | `/api/recordings/{id}/chunks` | M11 | raw-тело (`application/octet-stream`), append в WebM; ≤ `max_chunk_bytes` (32 МиБ) |
+| POST | `/api/recordings/{id}/pause`, `/resume` | M11 | пауза/продолжение (MediaRecorder + системный звук) → `204` |
+| POST | `/api/recordings/{id}/finish` | M11 | `{duration_ms?,width?,height?}` → `201 {video_id,title,duration_ms,size_bytes,path,playback_mode}` |
+| POST | `/api/recordings/{id}/cancel` | M11 | удаление сессии и временных файлов → `204` |
+| GET | `/api/recordings/{id}` | M11 | состояние сессии (диагностика) |
 
 Схема `/search` (единая, M4 создаёт каркас, M7 добавляет `kind:"annotation"`):
 
@@ -173,7 +194,7 @@ agent_digikam/                    # корень проекта
 
 ### 4.1. Ратифицированные уточнения (решения Lead, обязательны)
 
-1. **Настройки** — плоский объект; канон ключей: `language` (`auto|ru|en`), `whisper_model` (`tiny|base|small|medium`), `theme` (`light|dark|system`), `tags.multi_select_mode` (`union|intersection`, дефолт `union`), `tags.max_depth` (1–8, дефолт `5`), `log.level` (`INFO` дефолт; `DEBUG` допустим с предупреждением), `ui.sort` (`<поле>:<asc|desc>`). `GET /api/settings` → `{"language":"auto","whisper_model":"small","theme":"system","tags.multi_select_mode":"union","tags.max_depth":5,"log.level":"INFO"}`; `PATCH` — частичный объект, ответ — полный объект; неизвестный/невалидный ключ → `400 {code:"unknown_setting"|"invalid_setting"}`; изменение публикует `settings.changed {keys:[…]}`.
+1. **Настройки** — плоский объект; канон ключей: `language` (`auto|ru|en`), `whisper_model` (`tiny|base|small|medium`), `theme` (`light|dark|system`), `tags.multi_select_mode` (`union|intersection`, дефолт `union`), `tags.max_depth` (1–8, дефолт `5`), `log.level` (`INFO` дефолт; `DEBUG` допустим с предупреждением), `ui.sort` (`<поле>:<asc|desc>`). `GET /api/settings` → `{"language":"auto","whisper_model":"small","theme":"system","tags.multi_select_mode":"union","tags.max_depth":5,"log.level":"INFO"}`; `PATCH` — частичный объект, ответ — полный объект; неизвестный/невалидный ключ → `400 {code:"unknown_setting"|"invalid_setting"}`; изменение публикует `settings.changed {keys:[…]}`. **M13/M14 добавляют ключи:** `models.endpoint` (строка URL зеркала, ≤300, пусто = huggingface.co), `models.offline` (bool), `models.auto_download` (bool, default `false`), `summary.enabled` (bool, default `true`), `summary.auto` (bool, default `true`), `summary.thinking` (`auto|off`, default `auto`), `summary.model` (id из реестра M13, default `summary-lfm2.5-350m`; альтернатива `summary-qwen2.5-0.5b`). **V5 добавляет ключ** `files.recent_destinations` (список абсолютных путей, ≤5, без дублей; пишет backend при успешном `/api/videos/transfer`; используется для истории назначений в контекстном меню).
 2. **Теги: семантика фильтров.** `tag:` фильтрует по тегам сущности своего `scope` (файлы → теги файла; сегменты → теги сегмента; метки → теги метки; `all` → объединение). `include_children=1` по умолчанию (клик по тегу показывает и дочерние — `TARGET.md` §2.2), `include_children=0` отключает. `tag_mode` по умолчанию `any` (объединение; соответствует настройке `tags.multi_select_mode=union`), `all` — пересечение. `tags.max_depth` — дефолт 5, API-лимит 8 (защита от циклов и патологий); глубже 5 — UI не предлагает, но данные не ломаются.
 3. **Поиск.** `scope=all|files|segments|annotations`; в M4 `scope=annotations` возвращает валидный пустой ответ (провайдер регистрируется в M7). `limit` по умолчанию 20, максимум 100; `query.took_ms` — аддитивное поле времени ответа. Ошибки: `invalid_scope`, `invalid_limit`, `query_too_long` (422). Ранжирование: `score = -bm25(...)`, детерминированный tie-break (`score`, `kind`, `video_id`, `start_ms`).
 4. **Стриминг и превью.** `?token=` — только `/api/events` и `/api/videos/{id}/stream`. `/thumb` реализует M2 (ленивый кэш, `?at_ms=` опционально расширяет M5); повторной реализации в M5 нет.
@@ -244,7 +265,11 @@ CREATE INDEX idx_ann_tags_tag ON annotation_tags(tag_id);
 - `videos.progress` — доля `0..1` (REAL), не проценты; `1.0` только при `done`; UI форматирует в `%`.
 - `videos.mtime_ms` — mtime файла; колонка «Дата изменения» в списке (`TARGET.md` §2.3) берёт `mtime_ms`, при NULL — `added_at`.
 - `videos.duplicate_of` (опционально, если M2 реализует) — id первичной записи; для `duplicate`-строк путь и title сохраняются.
-- Миграции: `001–003` — M1, `004` — M4, `005` — M6, `006–007` — M7; номера не переиспользуются.
+- Миграции: `001–003` — M1, `004` — M4, `005` — M6, `006–007` — M7, `008` — M11 (записи экрана), `009` — M12 (эмбеддинги), `010` — M13 (модели), `011` — M14 (саммари); номера не переиспользуются.
+- `segment_embeddings` (009, M12): `segment_id` PK FK→`segments` ON DELETE CASCADE, `model`, `dim`, `vector BLOB` (float32, L2-нормированный), `updated_at`; индекс по `model`. Семантика в `mode=semantic|hybrid` использует BRUTEFORCE-косинус в numpy (кэш матрицы), без `sqlite-vec`.
+- `recordings` (008): `id TEXT PRIMARY KEY` (uuid сессии), `video_id` UNIQUE FK→`videos` ON DELETE CASCADE, `source_kind` (`screen|window`), `source_title`, `mime_type`, `system_audio`, `duration_ms`, `size_bytes`, `created_at`. Финальные файлы — `$VL_DATA_DIR/recordings/*.webm`, временные — `$VL_DATA_DIR/tmp/recordings/` (чистятся при старте).
+- `model_downloads` (010, M13): `model_id TEXT PRIMARY KEY`, `status` (`absent|queued|downloading|verifying|ready|error`), `bytes_received`, `total_bytes`, `revision`, `error`, `error_code`, `updated_at`; плюс `ALTER TABLE videos ADD COLUMN error_code TEXT` (`model_missing`, …).
+- `summary_chunks`/`summary_levels`/`summary_jobs` (011, M14): MAP-дайджесты по окнам, кэш уровней 1–4 (`level CHECK 1..4`), состояние job; `source_hash`+`model`+`prompt_version` — ключ валидности, каскад от `videos`; схема — `plans/14-summary-lfm.md` §4.1.
 
 ## 6. Контракт Electron ↔ Renderer
 
@@ -261,7 +286,11 @@ interface VLApi {
   getAppInfo(): Promise<{ version: string; dataDir: string; logsDir: string }>;
   onBackendStatus(cb: (s: 'starting'|'ready'|'crashed'|'stopped') => void): () => void;
   log(level: 'info'|'warn'|'error', msg: string): void;
+  getCaptureSources(): Promise<CaptureSource[]>;   // M11: экраны/окна + PNG-миниатюры (data URL)
 }
+
+`CaptureSource` (M11): `{id: string, name: string, type: 'screen'|'window', display_id?: string, thumbnail_data_url: string}`.
+Канал `vl:capture:sources` (invoke) → `desktopCapturer.getSources({types:['screen','window']})`; разрешения `media`/`display-capture` выдаются только для origin `http://127.0.0.1:*`/`http://localhost:*`.
 ```
 
 Правила: каналы именуются `vl:<domain>:<action>`; invoke-каналы — только через `ipcMain.handle`; никакого `ipcRenderer` в рендерере; `window.vl` вызывается **только через слой `frontend/src/api/*`** (`client.ts`, `sse.ts`, `electron.ts`), а не из компонентов напрямую. `getPathForFile` — синхронный метод `webUtils` в preload (не IPC-канал), экспортируется через `contextBridge`; fallback — `File.path` для Electron 31.
@@ -275,7 +304,9 @@ interface VLApi {
 | Логи | `$VL_DATA_DIR/logs/` |
 | Кэш превью | `$VL_DATA_DIR/cache/thumbs/` |
 | Временные WAV | `$VL_DATA_DIR/tmp/` (удаляются после обработки) |
+| Записи экрана | `$VL_DATA_DIR/recordings/*.webm` (M11); временные чанки — `$VL_DATA_DIR/tmp/recordings/` |
 | Ресурсы | `VL_RESOURCES_DIR` (в dev — `./resources`, в prod — `process.resourcesPath`) |
+| Модели | `$VL_DATA_DIR/models/` (`VL_MODELS_DIR`); legacy `$VL_RESOURCES_DIR/models/` (read-only, `bundled`); runtime llama.cpp — `$VL_RESOURCES_DIR/llama/` (M14) |
 | Сборка SPA | `VL_FRONTEND_DIR` — путь к `frontend/dist` для статики; по умолчанию `${VL_RESOURCES_DIR}/frontend/dist` (prod) и `<repo>/frontend/dist` (dev) |
 | Порт dev | `8765` (`VL_DEV_BACKEND_PORT`) |
 | Порт prod | динамический, `127.0.0.1:0` |
@@ -357,6 +388,13 @@ interface VLApi {
 - **M6** обязан обеспечить теги для меток (таблица `annotation_tags`) и поиск `tag:` по меткам.
 - **M9** обязан включить горячие клавиши меток и поиска в окно «О клавишах» и в доступность с клавиатуры.
 
+### 12.1. Требования 2026-10-27 (M13/M14)
+
+Пользователь дополнительно потребовал:
+
+- **Вынести загрузку всех моделей из бандла** в ручную загрузку после запуска приложения из меню настроек (M13): реестр, прогресс, докачка, зеркало, импорт из файла, офлайн-режим, удаление; артефакты без `resources/models`.
+- **Добавить модель `LFM2.5-350M-Thinking` для саммари транскрибации** (M14): саммари с несколькими уровнями детализации; в панели таймингов — вертикальная шкала (ползунок, лупа «+» сверху, лупа «−» снизу); на максимуме — текущие построчные тайминги, при уменьшении — менее детальная транскрибация и данные саммари. Пользователь выбрал `KoarAI/LFM2.5-350M-Thinking` рекомендуемой/дефолтной; `Qwen2.5-0.5B-Instruct` — загружаемая альтернатива с переключением (`plans/14` §3 D-14.1).
+
 ## 13. Глоссарий
 
 | Термин | Значение |
@@ -386,3 +424,7 @@ interface VLApi {
 | `plans/08-packaging-m8.md` | M8 упаковка | writer-release |
 | `plans/09-polish-m9.md` | M9 полировка | writer-release |
 | `plans/10-acceptance-ci.md` | приёмка и CI | writer-search |
+| `plans/11-screen-recording.md` | M11 запись экрана/окна (аудио+видео) | Lead |
+| `plans/12-semantic-search.md` | M12 семантический (векторный) поиск по транскрибации | Lead |
+| `plans/13-model-store.md` | M13 загрузка моделей из настроек, вне бандла | writer-release |
+| `plans/14-summary-lfm.md` | M14 саммари транскрибации (LFM2.5-350M-Thinking) + шкала детализации | Lead |

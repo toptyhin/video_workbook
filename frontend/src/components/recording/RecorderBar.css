@@ -1,0 +1,314 @@
+/* Плавающая панель активной записи — «пульт» внизу по центру. */
+
+.vl-recorder {
+  position: fixed;
+  left: 50%;
+  bottom: 18px;
+  transform: translateX(-50%);
+  z-index: 1800;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: max-content;
+  max-width: calc(100vw - 32px);
+  padding: 9px 12px 9px 14px;
+  border: 1px solid var(--vl-border);
+  border-left: 3px solid var(--vl-danger);
+  border-radius: 12px;
+  background: var(--vl-bg-elevated);
+  color: var(--vl-text);
+  box-shadow:
+    var(--vl-shadow),
+    0 0 0 1px color-mix(in srgb, var(--vl-danger) 14%, transparent);
+  animation: vl-recorder-in 180ms cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+
+@keyframes vl-recorder-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 12px);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+}
+
+.vl-recorder.is-paused {
+  border-left-color: var(--vl-warning);
+  box-shadow:
+    var(--vl-shadow),
+    0 0 0 1px color-mix(in srgb, var(--vl-warning) 16%, transparent);
+}
+
+.vl-recorder.is-finalizing {
+  border-left-color: var(--vl-accent);
+}
+
+.vl-recorder.is-error {
+  border-left-color: var(--vl-danger);
+  background: color-mix(in srgb, var(--vl-danger) 7%, var(--vl-bg-elevated));
+}
+
+.vl-recorder__pulse {
+  flex: 0 0 auto;
+  position: relative;
+  width: 22px;
+  height: 22px;
+  display: grid;
+  place-items: center;
+}
+
+.vl-recorder__dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--vl-danger);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--vl-danger) 22%, transparent);
+}
+
+.vl-recorder.is-recording .vl-recorder__dot::after {
+  content: '';
+  position: absolute;
+  inset: 1px;
+  border-radius: 50%;
+  border: 2px solid var(--vl-danger);
+  animation: vl-recorder-ping 1.6s cubic-bezier(0.2, 0.6, 0.35, 1) infinite;
+}
+
+.vl-recorder.is-paused .vl-recorder__dot {
+  background: var(--vl-warning);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--vl-warning) 22%, transparent);
+}
+
+.vl-recorder.is-error .vl-recorder__dot {
+  border-radius: 3px;
+  background: var(--vl-danger);
+}
+
+@keyframes vl-recorder-ping {
+  0% {
+    transform: scale(0.7);
+    opacity: 0.9;
+  }
+  70%,
+  100% {
+    transform: scale(1.9);
+    opacity: 0;
+  }
+}
+
+.vl-recorder__main {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.vl-recorder__line {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  min-width: 0;
+}
+
+.vl-recorder__state {
+  flex: 0 0 auto;
+  font-size: 12px;
+  font-weight: 650;
+  letter-spacing: 0.01em;
+}
+
+.vl-recorder.is-recording .vl-recorder__state {
+  color: var(--vl-danger);
+}
+
+.vl-recorder.is-paused .vl-recorder__state {
+  color: var(--vl-warning);
+}
+
+.vl-recorder.is-finalizing .vl-recorder__state {
+  color: var(--vl-accent);
+}
+
+.vl-recorder.is-error .vl-recorder__state {
+  color: var(--vl-danger);
+}
+
+.vl-recorder__timer {
+  font-family: var(--vl-font-mono);
+  font-size: 19px;
+  font-weight: 600;
+  line-height: 1.1;
+  letter-spacing: 0.02em;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.vl-recorder__meta {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
+  font-size: 11px;
+  line-height: 1.3;
+  color: var(--vl-text-muted);
+}
+
+.vl-recorder__source {
+  min-width: 0;
+  max-width: 28ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.vl-recorder__sep {
+  flex: 0 0 auto;
+  opacity: 0.6;
+}
+
+.vl-recorder__size {
+  flex: 0 0 auto;
+  font-family: var(--vl-font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.vl-recorder__warn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 2px;
+  font-size: 11px;
+  line-height: 1.3;
+  color: var(--vl-warning);
+  max-width: 52ch;
+}
+
+.vl-recorder__warn::before {
+  content: '!';
+  flex: 0 0 13px;
+  height: 13px;
+  display: grid;
+  place-items: center;
+  border: 1px solid currentColor;
+  border-radius: 50%;
+  font-size: 9px;
+  font-weight: 700;
+}
+
+.vl-recorder__error {
+  margin: 2px 0 0;
+  max-width: 58ch;
+  font-size: 11px;
+  line-height: 1.35;
+  color: var(--vl-danger);
+  overflow-wrap: anywhere;
+}
+
+.vl-recorder__actions {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding-left: 2px;
+}
+
+.vl-recorder__actions button {
+  padding: 5px 10px;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.vl-recorder__save {
+  background: var(--vl-accent);
+  border-color: var(--vl-accent);
+  color: var(--vl-accent-text);
+  font-weight: 600;
+}
+
+.vl-recorder__save:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--vl-accent) 87%, #000);
+}
+
+.vl-recorder__cancel {
+  border-color: transparent;
+  background: transparent;
+  color: var(--vl-text-muted);
+}
+
+.vl-recorder__cancel:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--vl-danger) 12%, transparent);
+  color: var(--vl-danger);
+}
+
+.vl-recorder__confirm {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-left: 10px;
+  border-left: 1px solid var(--vl-border);
+}
+
+.vl-recorder__confirm-text {
+  max-width: 30ch;
+  font-size: 12px;
+  line-height: 1.3;
+  color: var(--vl-text);
+}
+
+.vl-recorder__discard {
+  background: var(--vl-danger);
+  border-color: var(--vl-danger);
+  color: #fff;
+  font-weight: 600;
+}
+
+.vl-recorder__discard:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--vl-danger) 86%, #000);
+}
+
+.vl-recorder__spinner {
+  flex: 0 0 auto;
+}
+
+@media (max-width: 760px) {
+  .vl-recorder {
+    left: 12px;
+    right: 12px;
+    bottom: 12px;
+    transform: none;
+    width: auto;
+    max-width: none;
+    flex-wrap: wrap;
+    border-radius: var(--vl-radius);
+    animation-name: vl-recorder-in-narrow;
+  }
+
+  @keyframes vl-recorder-in-narrow {
+    from {
+      opacity: 0;
+      transform: translateY(12px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .vl-recorder__main {
+    flex: 1 1 auto;
+  }
+
+  .vl-recorder__actions {
+    flex: 1 1 100%;
+    justify-content: flex-end;
+    border-top: 1px solid var(--vl-border);
+    padding-top: 8px;
+  }
+
+  .vl-recorder__confirm {
+    flex-wrap: wrap;
+    border-left: 0;
+  }
+}

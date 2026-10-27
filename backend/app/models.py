@@ -36,6 +36,13 @@ class ErrorOut(BaseModel):
     code: str | None = None
 
 
+class SemanticReindexIn(BaseModel):
+    """Тело POST /api/search/semantic/reindex (M12)."""
+
+    model_config = {"extra": "forbid"}
+    force: bool = False
+
+
 class AnnotationBadRequest(BaseModel):
     """Заготовка для M7 (используется в тестах контракта)."""
 

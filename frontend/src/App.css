@@ -29,10 +29,14 @@
   flex: 1 1 auto;
   min-width: 0;
   min-height: 0;
+  /* Панель результатов поиска и список файлов занимают центр без переполнения. */
+  overflow: hidden;
 }
 
 .vl-app__viewbar {
   display: flex;
+  /* Вкладки не сжимаются: результаты поиска идут строго под ними. */
+  flex: 0 0 auto;
   gap: 4px;
   padding: 6px 10px 0;
   border-bottom: 1px solid var(--vl-border);

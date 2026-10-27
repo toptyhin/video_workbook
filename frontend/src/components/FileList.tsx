@@ -1,11 +1,25 @@
 import { useMemo, useRef, useState } from 'react';
-import type { DragEvent, KeyboardEvent as ReactKeyboardEvent, MouseEvent as ReactMouseEvent } from 'react';
+import type {
+  CSSProperties,
+  DragEvent,
+  KeyboardEvent as ReactKeyboardEvent,
+  MouseEvent as ReactMouseEvent,
+} from 'react';
+import { mediaUrl } from '../api/client';
 import type { Video } from '../api/types';
 import { vl } from '../api/electron';
 import { VIDEO_EXTENSIONS } from '../lib/constants';
 import { fileBaseName, formatDate } from '../lib/format';
 import { t } from '../lib/i18n';
 import { formatTimecode } from '../lib/time';
+import {
+  destinationLabel,
+  MAX_GRID_COLUMNS,
+  MAX_RECENT_DESTINATIONS,
+  MIN_GRID_COLUMNS,
+  useFileBrowserStore,
+} from '../state/fileBrowserStore';
+import type { TransferAction } from '../state/fileBrowserStore';
 import { useLibraryStore } from '../state/libraryStore';
 import type { LibrarySortField } from '../state/libraryStore';
 import { useSearchStore } from '../state/searchStore';
@@ -29,6 +43,11 @@ const COLUMNS: Column[] = [
   { field: null, labelKey: 'files.columnTags' },
   { field: 'mtime_ms', labelKey: 'files.columnDate' },
 ];
+
+const GRID_COLUMN_OPTIONS = Array.from(
+  { length: MAX_GRID_COLUMNS - MIN_GRID_COLUMNS + 1 },
+  (_, index) => MIN_GRID_COLUMNS + index,
+);
 
 const TAG_MIME = 'application/x-vl-tag-id';
 
@@ -64,7 +83,26 @@ interface ContextMenuState {
   videoId: number;
 }
 
-/** Таблица библиотеки: сортировка, мультивыбор, drag&drop файлов и тегов, контекстное меню. */
+/** Общие для таблицы и сетки обработчики одного элемента списка. */
+interface ItemHandlers {
+  ref: (element: HTMLElement | null) => void;
+  tabIndex: number;
+  'aria-selected': boolean;
+  onClick: (event: ReactMouseEvent<HTMLElement>) => void;
+  onDoubleClick: () => void;
+  onContextMenu: (event: ReactMouseEvent<HTMLElement>) => void;
+  onFocus: () => void;
+  onKeyDown: (event: ReactKeyboardEvent<HTMLElement>) => void;
+  onDragOver: (event: DragEvent<HTMLElement>) => void;
+  onDragLeave: () => void;
+  onDrop: (event: DragEvent<HTMLElement>) => void;
+}
+
+/**
+ * Панель «Файлы»: режимы «список» (таблица) и «блоки» (настраиваемая сетка),
+ * мультивыбор, drag&drop файлов и тегов, контекстное меню с перемещением/
+ * копированием в папку (plans/15 §4.2).
+ */
 export function FileList() {
   const videos = useLibraryStore((state) => state.videos);
   const total = useLibraryStore((state) => state.total);
@@ -82,6 +120,15 @@ export function FileList() {
   const removeSelected = useLibraryStore((state) => state.removeSelected);
   const reprocessSelected = useLibraryStore((state) => state.reprocessSelected);
 
+  const viewMode = useFileBrowserStore((state) => state.viewMode);
+  const gridColumns = useFileBrowserStore((state) => state.gridColumns);
+  const recentDestinations = useFileBrowserStore((state) => state.recentDestinations);
+  const folders = useFileBrowserStore((state) => state.folders);
+  const setViewMode = useFileBrowserStore((state) => state.setViewMode);
+  const setGridColumns = useFileBrowserStore((state) => state.setGridColumns);
+  const openTransfer = useFileBrowserStore((state) => state.openTransfer);
+  const transferTo = useFileBrowserStore((state) => state.transferTo);
+
   const trees = useTagsStore((state) => state.tree);
   const assignToVideo = useTagsStore((state) => state.assignToVideo);
   const removeFromVideo = useTagsStore((state) => state.removeFromVideo);
@@ -94,7 +141,8 @@ export function FileList() {
   const [dropActive, setDropActive] = useState(false);
   const [dropRowId, setDropRowId] = useState<number | null>(null);
   const [focusedIndex, setFocusedIndex] = useState(0);
-  const rowRefs = useRef<Array<HTMLTableRowElement | null>>([]);
+  const [thumbErrors, setThumbErrors] = useState<number[]>([]);
+  const itemRefs = useRef<Array<HTMLElement | null>>([]);
 
   const tagList = useMemo(() => {
     const paths = tagPathMap(trees);
@@ -114,6 +162,25 @@ export function FileList() {
   const contextTargets = (videoId: number): number[] =>
     selectedIds.includes(videoId) ? selectedIds : [videoId];
 
+  /** Подменю адресатов: история (до 5) + «Выбрать другую папку…» (plans/15 §4.2). */
+  const destinationItems = (action: TransferAction, targets: number[]): ContextMenuItem[] => {
+    const children: ContextMenuItem[] = recentDestinations
+      .slice(0, MAX_RECENT_DESTINATIONS)
+      .map((destination) => ({
+        id: `${action}-destination-${destination}`,
+        label: destinationLabel(destination, folders),
+        title: destination,
+        onSelect: () => void transferTo(action, targets, destination),
+      }));
+    children.push({
+      id: `${action}-choose`,
+      label: t('files.chooseFolder'),
+      separatorBefore: children.length > 0,
+      onSelect: () => openTransfer(action, targets),
+    });
+    return children;
+  };
+
   const buildMenuItems = (video: Video): ContextMenuItem[] => {
     const targets = contextTargets(video.id);
     const assignChildren: ContextMenuItem[] =
@@ -121,6 +188,7 @@ export function FileList() {
         ? tagList.map((tag) => ({
             id: `assign-${tag.id}`,
             label: tag.label,
+            title: tag.label,
             onSelect: () => assignTag(tag.id, targets),
           }))
         : [];
@@ -129,6 +197,7 @@ export function FileList() {
         ? tagList.map((tag) => ({
             id: `unassign-${tag.id}`,
             label: tag.label,
+            title: tag.label,
             onSelect: () => unassignTag(tag.id, targets),
           }))
         : [];
@@ -144,6 +213,17 @@ export function FileList() {
         label: t('tags.delete'),
         disabled: unassignChildren.length === 0,
         children: unassignChildren,
+      },
+      {
+        id: 'move-to',
+        label: t('files.moveTo'),
+        separatorBefore: true,
+        children: destinationItems('move', targets),
+      },
+      {
+        id: 'copy-to',
+        label: t('files.copyTo'),
+        children: destinationItems('copy', targets),
       },
       {
         id: 'reprocess',
@@ -169,14 +249,24 @@ export function FileList() {
     ];
   };
 
-  const handleRowClick = (event: ReactMouseEvent<HTMLTableRowElement>, video: Video): void => {
+  const handleItemClick = (event: ReactMouseEvent<HTMLElement>, video: Video): void => {
     toggleSelect(video.id, {
       additive: event.ctrlKey || event.metaKey,
       range: event.shiftKey,
     });
   };
 
-  const handleRowKeyDown = (event: ReactKeyboardEvent<HTMLTableRowElement>, video: Video, index: number): void => {
+  const focusItem = (index: number): void => {
+    if (index < 0 || index >= videos.length) return;
+    itemRefs.current[index]?.focus();
+  };
+
+  const handleItemKeyDown = (
+    event: ReactKeyboardEvent<HTMLElement>,
+    video: Video,
+    index: number,
+  ): void => {
+    const horizontal = viewMode === 'grid' ? gridColumns : 1;
     if (event.key === 'Enter') {
       event.preventDefault();
       selectVideo(video.id);
@@ -185,10 +275,16 @@ export function FileList() {
       toggleSelect(video.id, { additive: true });
     } else if (event.key === 'ArrowDown') {
       event.preventDefault();
-      rowRefs.current[index + 1]?.focus();
+      focusItem(index + horizontal);
     } else if (event.key === 'ArrowUp') {
       event.preventDefault();
-      rowRefs.current[index - 1]?.focus();
+      focusItem(index - horizontal);
+    } else if (viewMode === 'grid' && event.key === 'ArrowRight') {
+      event.preventDefault();
+      focusItem(index + 1);
+    } else if (viewMode === 'grid' && event.key === 'ArrowLeft') {
+      event.preventDefault();
+      focusItem(index - 1);
     } else if (event.key === 'Escape') {
       setSelection([]);
     }
@@ -197,7 +293,7 @@ export function FileList() {
   const isTagDrag = (event: DragEvent<HTMLElement>): boolean =>
     Array.from(event.dataTransfer.types).includes(TAG_MIME);
 
-  const handleRowDragOver = (event: DragEvent<HTMLTableRowElement>, video: Video): void => {
+  const handleItemDragOver = (event: DragEvent<HTMLElement>, video: Video): void => {
     if (!isTagDrag(event)) return;
     event.preventDefault();
     event.stopPropagation();
@@ -205,7 +301,7 @@ export function FileList() {
     if (dropRowId !== video.id) setDropRowId(video.id);
   };
 
-  const handleRowDrop = (event: DragEvent<HTMLTableRowElement>, video: Video): void => {
+  const handleItemDrop = (event: DragEvent<HTMLElement>, video: Video): void => {
     if (!isTagDrag(event)) return;
     event.preventDefault();
     event.stopPropagation();
@@ -214,6 +310,26 @@ export function FileList() {
     if (!Number.isFinite(tagId) || tagId <= 0) return;
     assignTag(tagId, contextTargets(video.id));
   };
+
+  const itemHandlers = (video: Video, index: number): ItemHandlers => ({
+    ref: (element) => {
+      itemRefs.current[index] = element;
+    },
+    tabIndex: focusedIndex === index ? 0 : -1,
+    'aria-selected': selectedIds.includes(video.id),
+    onClick: (event) => handleItemClick(event, video),
+    onDoubleClick: () => selectVideo(video.id),
+    onContextMenu: (event) => {
+      event.preventDefault();
+      if (!selectedIds.includes(video.id)) setSelection([video.id]);
+      setContextMenu({ x: event.clientX, y: event.clientY, videoId: video.id });
+    },
+    onFocus: () => setFocusedIndex(index),
+    onKeyDown: (event) => handleItemKeyDown(event, video, index),
+    onDragOver: (event) => handleItemDragOver(event, video),
+    onDragLeave: () => setDropRowId((current) => (current === video.id ? null : current)),
+    onDrop: (event) => handleItemDrop(event, video),
+  });
 
   const handleDropFiles = (event: DragEvent<HTMLDivElement>): void => {
     const types = Array.from(event.dataTransfer.types);
@@ -282,98 +398,183 @@ export function FileList() {
           {t('files.found', { count: searchTotal, query: searchQuery })}
         </div>
       )}
+      <div className="vl-filelist__toolbar">
+        <div className="vl-filelist__viewtoggle" role="group" aria-label={t('files.viewMode')}>
+          <button
+            type="button"
+            aria-pressed={viewMode === 'list'}
+            onClick={() => setViewMode('list')}
+          >
+            {t('files.viewList')}
+          </button>
+          <button
+            type="button"
+            aria-pressed={viewMode === 'grid'}
+            onClick={() => setViewMode('grid')}
+          >
+            {t('files.viewGrid')}
+          </button>
+        </div>
+        {viewMode === 'grid' && (
+          <label className="vl-filelist__columns">
+            <span>{t('files.gridColumns')}</span>
+            <select
+              value={gridColumns}
+              aria-label={t('files.gridColumns')}
+              onChange={(event) => setGridColumns(Number(event.target.value))}
+            >
+              {GRID_COLUMN_OPTIONS.map((count) => (
+                <option key={count} value={count}>
+                  {count}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
+      </div>
       <div className="vl-filelist__scroll">
-        <table className="vl-table" aria-label={t('sidebar.tabFiles')}>
-          <thead>
-            <tr>
-              {COLUMNS.map((column) => {
-                const active = column.field !== null && sort === column.field;
-                const ariaSort = active
-                  ? dir === 'asc'
-                    ? 'ascending'
-                    : 'descending'
-                  : 'none';
+        {viewMode === 'list' ? (
+          <table className="vl-table" aria-label={t('sidebar.tabFiles')}>
+            <thead>
+              <tr>
+                {COLUMNS.map((column) => {
+                  const active = column.field !== null && sort === column.field;
+                  const ariaSort = active
+                    ? dir === 'asc'
+                      ? 'ascending'
+                      : 'descending'
+                    : 'none';
+                  return (
+                    <th
+                      key={column.labelKey}
+                      scope="col"
+                      aria-sort={column.field === null ? undefined : ariaSort}
+                    >
+                      {column.field === null ? (
+                        <span className="vl-table__label">{t(column.labelKey)}</span>
+                      ) : (
+                        <button
+                          type="button"
+                          className="vl-table__sort"
+                          onClick={() => setSort(column.field as LibrarySortField)}
+                          title={t(column.labelKey)}
+                        >
+                          {t(column.labelKey)}
+                          {active && <span aria-hidden="true">{dir === 'asc' ? ' ▲' : ' ▼'}</span>}
+                        </button>
+                      )}
+                    </th>
+                  );
+                })}
+              </tr>
+            </thead>
+            <tbody>
+              {videos.map((video, index) => {
+                const selected = selectedIds.includes(video.id);
                 return (
-                  <th
-                    key={column.labelKey}
-                    scope="col"
-                    aria-sort={column.field === null ? undefined : ariaSort}
+                  <tr
+                    key={video.id}
+                    {...itemHandlers(video, index)}
+                    className={[
+                      selected ? 'vl-table__row--selected' : '',
+                      dropRowId === video.id ? 'vl-table__row--drop-target' : '',
+                    ]
+                      .filter(Boolean)
+                      .join(' ')}
                   >
-                    {column.field === null ? (
-                      <span className="vl-table__label">{t(column.labelKey)}</span>
-                    ) : (
-                      <button
-                        type="button"
-                        className="vl-table__sort"
-                        onClick={() => setSort(column.field as LibrarySortField)}
-                        title={t(column.labelKey)}
-                      >
-                        {t(column.labelKey)}
-                        {active && <span aria-hidden="true">{dir === 'asc' ? ' ▲' : ' ▼'}</span>}
-                      </button>
-                    )}
-                  </th>
+                    <td className="vl-table__cell--file">
+                      <span className="vl-table__title">{videoLabel(video)}</span>
+                      <span className="vl-table__path" title={video.path}>
+                        {video.path}
+                      </span>
+                    </td>
+                    <td className="vl-table__cell--duration">
+                      {video.duration_ms === null ? '—' : formatTimecode(video.duration_ms)}
+                    </td>
+                    <td className="vl-table__cell--status">
+                      <StatusBadge video={video} />
+                    </td>
+                    <td className="vl-table__cell--tags">
+                      {video.tags_count > 0 ? (
+                        <span className="vl-tag-count" title={t('files.columnTags')}>
+                          <span aria-hidden="true">🏷</span> {video.tags_count}
+                        </span>
+                      ) : (
+                        <span className="vl-muted">—</span>
+                      )}
+                    </td>
+                    <td className="vl-table__cell--date">
+                      {formatDate(video.mtime_ms ?? video.added_at)}
+                    </td>
+                  </tr>
                 );
               })}
-            </tr>
-          </thead>
-          <tbody>
+            </tbody>
+          </table>
+        ) : (
+          <div
+            className="vl-filegrid"
+            role="listbox"
+            aria-label={t('sidebar.tabFiles')}
+            style={{ '--vl-grid-columns': gridColumns } as CSSProperties}
+          >
             {videos.map((video, index) => {
               const selected = selectedIds.includes(video.id);
+              const thumbFailed = thumbErrors.includes(video.id);
               return (
-                <tr
+                <div
                   key={video.id}
-                  ref={(element) => {
-                    rowRefs.current[index] = element;
-                  }}
-                  tabIndex={focusedIndex === index ? 0 : -1}
+                  {...itemHandlers(video, index)}
+                  role="option"
                   className={[
-                    selected ? 'vl-table__row--selected' : '',
-                    dropRowId === video.id ? 'vl-table__row--drop-target' : '',
+                    'vl-filecard',
+                    selected ? 'vl-filecard--selected' : '',
+                    dropRowId === video.id ? 'vl-filecard--drop-target' : '',
                   ]
                     .filter(Boolean)
                     .join(' ')}
-                  aria-selected={selected}
-                  onClick={(event) => handleRowClick(event, video)}
-                  onDoubleClick={() => selectVideo(video.id)}
-                  onContextMenu={(event) => {
-                    event.preventDefault();
-                    if (!selectedIds.includes(video.id)) setSelection([video.id]);
-                    setContextMenu({ x: event.clientX, y: event.clientY, videoId: video.id });
-                  }}
-                  onFocus={() => setFocusedIndex(index)}
-                  onKeyDown={(event) => handleRowKeyDown(event, video, index)}
-                  onDragOver={(event) => handleRowDragOver(event, video)}
-                  onDragLeave={() => setDropRowId((current) => (current === video.id ? null : current))}
-                  onDrop={(event) => handleRowDrop(event, video)}
                 >
-                  <td className="vl-table__cell--file">
-                    <span className="vl-table__title">{videoLabel(video)}</span>
-                    <span className="vl-table__path" title={video.path}>
-                      {video.path}
-                    </span>
-                  </td>
-                  <td className="vl-table__cell--duration">
-                    {video.duration_ms === null ? '—' : formatTimecode(video.duration_ms)}
-                  </td>
-                  <td className="vl-table__cell--status">
-                    <StatusBadge video={video} />
-                  </td>
-                  <td className="vl-table__cell--tags">
-                    {video.tags_count > 0 ? (
-                      <span className="vl-tag-count" title={t('files.columnTags')}>
-                        <span aria-hidden="true">🏷</span> {video.tags_count}
+                  <div className="vl-filecard__preview">
+                    {thumbFailed ? (
+                      <span className="vl-filecard__placeholder" aria-hidden="true">
+                        🎬
                       </span>
                     ) : (
-                      <span className="vl-muted">—</span>
+                      <img
+                        className="vl-filecard__thumb"
+                        src={mediaUrl(video.id, 'thumb')}
+                        alt=""
+                        loading="lazy"
+                        draggable={false}
+                        onError={() =>
+                          setThumbErrors((current) =>
+                            current.includes(video.id) ? current : [...current, video.id],
+                          )
+                        }
+                      />
                     )}
-                  </td>
-                  <td className="vl-table__cell--date">{formatDate(video.mtime_ms ?? video.added_at)}</td>
-                </tr>
+                    <span className="vl-filecard__duration">
+                      {video.duration_ms === null ? '—' : formatTimecode(video.duration_ms)}
+                    </span>
+                  </div>
+                  <div className="vl-filecard__body">
+                    <span className="vl-filecard__title" title={video.path}>
+                      {videoLabel(video)}
+                    </span>
+                    <div className="vl-filecard__meta">
+                      <StatusBadge video={video} />
+                      {video.tags_count > 0 ? (
+                        <span className="vl-tag-count" title={t('files.columnTags')}>
+                          <span aria-hidden="true">🏷</span> {video.tags_count}
+                        </span>
+                      ) : null}
+                    </div>
+                  </div>
+                </div>
               );
             })}
-          </tbody>
-        </table>
+          </div>
+        )}
       </div>
       <div className="vl-filelist__footer">
         {videos.length} / {total}

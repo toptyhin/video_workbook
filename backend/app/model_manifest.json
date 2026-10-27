@@ -1,0 +1,149 @@
+{
+  "schema": 1,
+  "updated": "2026-10-27",
+  "models": [
+    {
+      "id": "whisper-tiny",
+      "kind": "transcription",
+      "label": "Whisper tiny (CTranslate2, INT8)",
+      "local_dir": "faster-whisper-tiny",
+      "recommended": false,
+      "default": false,
+      "estimate_bytes": 78007379,
+      "source": {
+        "type": "huggingface",
+        "repo": "Systran/faster-whisper-tiny",
+        "revision": "d90ca5fe260221311c53c58e660288d3deb8d356",
+        "files": [
+          {"path": "config.json", "local": "config.json", "size": 2249, "sha256": null},
+          {"path": "model.bin", "local": "model.bin", "size": 75538270, "sha256": "dcb76c6586fc06cbdac6dd21f14cfd129cc4cdd9dce19bf4ffa62e59cbe6e6d1"},
+          {"path": "tokenizer.json", "local": "tokenizer.json", "size": 2203239, "sha256": null},
+          {"path": "vocabulary.txt", "local": "vocabulary.txt", "size": 459861, "sha256": null}
+        ]
+      },
+      "license": {"name": "MIT", "url": "https://huggingface.co/Systran/faster-whisper-tiny"}
+    },
+    {
+      "id": "whisper-base",
+      "kind": "transcription",
+      "label": "Whisper base (CTranslate2, INT8)",
+      "local_dir": "faster-whisper-base",
+      "recommended": false,
+      "default": false,
+      "estimate_bytes": 149864941,
+      "source": {
+        "type": "huggingface",
+        "repo": "Systran/faster-whisper-base",
+        "revision": "ebe41f70d5b6dfa9166e2c581c45c9c0cfc57b66",
+        "files": [
+          {"path": "config.json", "local": "config.json", "size": 2309, "sha256": null},
+          {"path": "model.bin", "local": "model.bin", "size": 145217532, "sha256": "d01c3014881c9c6f3133c182f3d2887eb6ca1c789a7538c5c007196857a0a6a9"},
+          {"path": "tokenizer.json", "local": "tokenizer.json", "size": 2203239, "sha256": null},
+          {"path": "vocabulary.txt", "local": "vocabulary.txt", "size": 459861, "sha256": null}
+        ]
+      },
+      "license": {"name": "MIT", "url": "https://huggingface.co/Systran/faster-whisper-base"}
+    },
+    {
+      "id": "whisper-small",
+      "kind": "transcription",
+      "label": "Whisper small (CTranslate2, INT8) — рекомендуется",
+      "local_dir": "faster-whisper-small",
+      "recommended": true,
+      "default": true,
+      "estimate_bytes": 488079201,
+      "source": {
+        "type": "huggingface",
+        "repo": "Systran/faster-whisper-small",
+        "revision": "536b0662742c02347bc0e980a01041f333bce120",
+        "files": [
+          {"path": "config.json", "local": "config.json", "size": 2370, "sha256": null},
+          {"path": "model.bin", "local": "model.bin", "size": 483546902, "sha256": "3e305921506d8872816023e4c273e75d2419fb89b24da97b4fe7bce14170d671"},
+          {"path": "tokenizer.json", "local": "tokenizer.json", "size": 2203239, "sha256": null},
+          {"path": "vocabulary.txt", "local": "vocabulary.txt", "size": 459861, "sha256": null}
+        ]
+      },
+      "license": {"name": "MIT", "url": "https://huggingface.co/Systran/faster-whisper-small"}
+    },
+    {
+      "id": "whisper-medium",
+      "kind": "transcription",
+      "label": "Whisper medium (CTranslate2, INT8)",
+      "local_dir": "faster-whisper-medium",
+      "recommended": false,
+      "default": false,
+      "estimate_bytes": 1530604677,
+      "source": {
+        "type": "huggingface",
+        "repo": "Systran/faster-whisper-medium",
+        "revision": "08e178d48790749d25932bbc082711ddcfdfbc4f",
+        "files": [
+          {"path": "config.json", "local": "config.json", "size": 2257, "sha256": null},
+          {"path": "model.bin", "local": "model.bin", "size": 1527906378, "sha256": "9b45e1009dcc4ab601eff815b61d80e60ce3fd8c74c1a14f4a282258286b51ae"},
+          {"path": "tokenizer.json", "local": "tokenizer.json", "size": 2203239, "sha256": null},
+          {"path": "vocabulary.txt", "local": "vocabulary.txt", "size": 459861, "sha256": null}
+        ]
+      },
+      "license": {"name": "MIT", "url": "https://huggingface.co/Systran/faster-whisper-medium"}
+    },
+    {
+      "id": "embedding-e5-small",
+      "kind": "embedding",
+      "label": "multilingual-e5-small (ONNX int8)",
+      "local_dir": "multilingual-e5-small-onnx",
+      "recommended": true,
+      "default": true,
+      "estimate_bytes": 136074286,
+      "source": {
+        "type": "huggingface",
+        "repo": "Xenova/multilingual-e5-small",
+        "revision": "761b726dd34fb83930e26aab4e9ac3899aa1fa78",
+        "files": [
+          {"path": "config.json", "local": "config.json", "size": 658, "sha256": null},
+          {"path": "tokenizer.json", "local": "tokenizer.json", "size": 17082730, "sha256": "0b44a9d7b51c3c62626640cda0e2c2f70fdacdc25bbbd68038369d14ebdf4c39"},
+          {"path": "tokenizer_config.json", "local": "tokenizer_config.json", "size": 443, "sha256": null},
+          {"path": "onnx/model_quantized.onnx", "local": "onnx/model_quantized.onnx", "size": 118308185, "sha256": "f80102d3f2a1229f387d3c81909990d8945513e347b0eab049f7de3c6f98c193"}
+        ]
+      },
+      "license": {"name": "MIT", "url": "https://huggingface.co/Xenova/multilingual-e5-small"}
+    },
+    {
+      "id": "summary-lfm2.5-350m",
+      "kind": "summary",
+      "label": "LFM2.5-350M-Thinking (GGUF Q4_K_M)",
+      "local_dir": "lfm2.5-350m-thinking",
+      "recommended": true,
+      "default": true,
+      "estimate_bytes": 229314528,
+      "meta": {"supports_thinking": true, "family": "lfm"},
+      "source": {
+        "type": "huggingface",
+        "repo": "KoarAI/LFM2.5-350M-Thinking-GGUF",
+        "revision": "be0063c4198876a5397a6a85f5fcd49769a89653",
+        "files": [
+          {"path": "LFM2.5-350M-Thinking-Q4_K_M.gguf", "local": "model.gguf", "size": 229314528, "sha256": "bb07a79a9f5de2d6dbc96fb4f1b9242cb768617a1fa0cfa246859dfbc5ac62fe"}
+        ]
+      },
+      "license": {"name": "LFM Open License v1.0", "url": "https://www.liquid.ai/lfm-license"}
+    },
+    {
+      "id": "summary-qwen2.5-0.5b",
+      "kind": "summary",
+      "label": "Qwen2.5-0.5B-Instruct (GGUF Q4_K_M)",
+      "local_dir": "qwen2.5-0.5b-instruct",
+      "recommended": false,
+      "default": false,
+      "estimate_bytes": 491400032,
+      "meta": {"supports_thinking": false, "family": "qwen"},
+      "source": {
+        "type": "huggingface",
+        "repo": "Qwen/Qwen2.5-0.5B-Instruct-GGUF",
+        "revision": "9217f5db79a29953eb74d5343926648285ec7e67",
+        "files": [
+          {"path": "qwen2.5-0.5b-instruct-q4_k_m.gguf", "local": "model.gguf", "size": 491400032, "sha256": "74a4da8c9fdbcd15bd1f6d01d621410d31c6fc00986f5eb687824e7b93d7a9db"}
+        ]
+      },
+      "license": {"name": "Apache-2.0", "url": "https://www.apache.org/licenses/LICENSE-2.0"}
+    }
+  ]
+}

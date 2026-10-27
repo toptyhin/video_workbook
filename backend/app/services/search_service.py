@@ -1,17 +1,23 @@
-"""Единый поиск: файлы, сегменты, метки (M4/M7)."""
+"""Единый поиск: файлы, сегменты, метки (M4/M7) + семантика (M12)."""
 from __future__ import annotations
 
 import html
+import logging
 import sqlite3
 import time
 from typing import Any
 
 from ..utils.fts_query import parse_query
 from . import tags_service
+from .embeddings import EMBEDDING_DIM, EMBEDDING_MODEL
+
+log = logging.getLogger(__name__)
 
 SCOPES = ("all", "files", "segments", "annotations")
+MODES = ("fts", "semantic", "hybrid")
 KIND_ORDER = {"segment": 0, "annotation": 1, "file": 2}
 PER_PROVIDER_LIMIT = 500
+RRF_K = 60
 
 
 class SearchError(ValueError):
@@ -262,6 +268,79 @@ def _annotations(
     return items
 
 
+def semantic_status(
+    conn: sqlite3.Connection, semantic: Any | None = None
+) -> dict[str, Any]:
+    """Статус семантического индекса; безопасный fallback без менеджера."""
+    if semantic is not None:
+        try:
+            status = semantic.status(conn)
+            if isinstance(status, dict):
+                return status
+        except Exception:
+            log.exception("Не удалось получить статус семантического индекса")
+    total = conn.execute("SELECT COUNT(*) FROM segments").fetchone()
+    detail = (
+        "Семантический индекс не инициализирован"
+        if semantic is None
+        else "Семантика недоступна"
+    )
+    return {
+        "available": False,
+        "model": EMBEDDING_MODEL,
+        "dim": EMBEDDING_DIM,
+        "indexed_segments": 0,
+        "total_segments": int(total[0]) if total else 0,
+        "indexing": False,
+        "autoindex": False,
+        "detail": detail,
+    }
+
+
+def _item_key(item: dict[str, Any]) -> tuple[str, int]:
+    kind = item["kind"]
+    if kind == "segment":
+        return kind, int(item["segment_id"])
+    if kind == "annotation":
+        return kind, int(item["annotation_id"])
+    return kind, int(item["video_id"])
+
+
+def _sort_key(item: dict[str, Any]) -> tuple[float, int, int, int]:
+    return (
+        -float(item["score"]),
+        KIND_ORDER[item["kind"]],
+        int(item["video_id"]),
+        int(item.get("start_ms") or 0),
+    )
+
+
+def _rrf_merge(
+    fts_items: list[dict[str, Any]], semantic_items: list[dict[str, Any]]
+) -> list[dict[str, Any]]:
+    """Reciprocal Rank Fusion (k=60) с дедупом по (kind, id) и меткой semantic=True."""
+    merged: dict[tuple[str, int], dict[str, Any]] = {}
+    scores: dict[tuple[str, int], float] = {}
+    for rank, item in enumerate(fts_items):
+        key = _item_key(item)
+        merged.setdefault(key, dict(item))
+        scores[key] = scores.get(key, 0.0) + 1.0 / (RRF_K + rank + 1)
+    for rank, item in enumerate(semantic_items):
+        key = _item_key(item)
+        if key in merged:
+            merged[key]["semantic"] = True
+        else:
+            merged[key] = dict(item)
+        scores[key] = scores.get(key, 0.0) + 1.0 / (RRF_K + rank + 1)
+    items: list[dict[str, Any]] = []
+    for key, item in merged.items():
+        entry = dict(item)
+        entry["score"] = round(scores[key], 6)
+        items.append(entry)
+    items.sort(key=_sort_key)
+    return items
+
+
 def search(
     conn: sqlite3.Connection,
     *,
@@ -274,7 +353,11 @@ def search(
     colors: list[str] | None = None,
     limit: int = 20,
     offset: int = 0,
+    mode: str = "fts",
+    semantic: Any | None = None,
 ) -> dict[str, Any]:
+    if mode not in MODES:
+        raise SearchError("invalid_mode", f"mode должен быть одним из: {', '.join(MODES)}")
     if scope not in SCOPES:
         raise SearchError("invalid_scope", f"scope должен быть одним из: {', '.join(SCOPES)}")
     if not 1 <= limit <= 100:
@@ -283,30 +366,67 @@ def search(
         raise SearchError("invalid_limit", "offset должен быть >= 0")
     started = time.monotonic()
     parsed = parse_query(q)
-    requested = list(dict.fromkeys([*(tag_ids or []), *tags_service.tag_ids_by_names(conn, parsed.tags)]))
-    effective = tags_service.descendant_ids(conn, requested) if include_children else requested
-    items: list[dict[str, Any]] = []
-    if scope in ("all", "files"):
-        items.extend(_files(conn, parsed, video_id, effective, tag_mode, parsed.file))
-    if scope in ("all", "segments"):
-        items.extend(_segments(conn, parsed, video_id, effective, tag_mode, parsed.file))
-    if scope in ("all", "annotations"):
-        items.extend(_annotations(conn, parsed, video_id, effective, tag_mode, parsed.file, colors))
-    items.sort(
-        key=lambda item: (
-            -item["score"],
-            KIND_ORDER[item["kind"]],
-            item["video_id"],
-            item.get("start_ms") or 0,
-        )
+    requested = list(
+        dict.fromkeys([*(tag_ids or []), *tags_service.tag_ids_by_names(conn, parsed.tags)])
     )
+    effective = tags_service.descendant_ids(conn, requested) if include_children else requested
+    status = semantic_status(conn, semantic)
+    semantic_mode = mode in ("semantic", "hybrid")
+    semantic_items: list[dict[str, Any]] = []
+    if (
+        semantic is not None
+        and semantic_mode
+        and scope in ("all", "segments")
+        and status.get("available")
+    ):
+        semantic_items = semantic.search(
+            conn,
+            q,
+            video_id=video_id,
+            tag_ids=effective,
+            tag_mode=tag_mode,
+            include_children=include_children,
+            file_prefix=parsed.file,
+            limit=PER_PROVIDER_LIMIT,
+        )
+        # перечитываем статус: ошибка загрузки/инференса могла проявиться при поиске
+        status = semantic_status(conn, semantic)
+    mode_used = mode
+    if semantic_mode and not status.get("available"):
+        mode_used = "fts"
+    if mode == "semantic" and scope in ("files", "annotations"):
+        mode_used = "fts"
+    fts_items: list[dict[str, Any]] = []
+    if mode_used in ("fts", "hybrid"):
+        if scope in ("all", "files"):
+            fts_items.extend(_files(conn, parsed, video_id, effective, tag_mode, parsed.file))
+        if scope in ("all", "segments"):
+            fts_items.extend(_segments(conn, parsed, video_id, effective, tag_mode, parsed.file))
+        if scope in ("all", "annotations"):
+            fts_items.extend(
+                _annotations(conn, parsed, video_id, effective, tag_mode, parsed.file, colors)
+            )
+    if mode_used == "semantic":
+        items = semantic_items
+    elif mode_used == "hybrid":
+        items = _rrf_merge(fts_items, semantic_items)
+    else:
+        items = fts_items
+    items.sort(key=_sort_key)
     total = len(items)
     elapsed = round((time.monotonic() - started) * 1000, 1)
     return {
-        "query": {**parsed.echo(), "scope": scope, "took_ms": elapsed},
+        "query": {
+            **parsed.echo(),
+            "scope": scope,
+            "mode": mode,
+            "mode_used": mode_used,
+            "semantic": status,
+            "took_ms": elapsed,
+        },
         "total": total,
         "items": items[offset : offset + limit],
     }
 
 
-__all__ = ["search", "SearchError"]
+__all__ = ["MODES", "SearchError", "search", "semantic_status"]

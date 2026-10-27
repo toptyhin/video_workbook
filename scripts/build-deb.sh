@@ -11,7 +11,7 @@ APPDIR="$PKGROOT/opt/VideoLessons"
 DEBIAN="$STAGE/DEBIAN"
 OUT="$ROOT/dist/VideoLessons-${VERSION}-amd64.deb"
 
-for required in dist-electron/main.js frontend/dist/index.html backend-dist/vl-backend/vl-backend; do
+for required in dist-electron/main.js frontend/dist/index.html backend-dist/vl-backend/vl-backend resources/llama/llama-cli; do
   [ -e "$ROOT/$required" ] || { echo "Нет $required — соберите: scripts/build-backend.sh docker && scripts/build-electron.sh" >&2; exit 1; }
 done
 
@@ -25,7 +25,8 @@ mkdir -p "$APPDIR/resources/frontend"
 cp -a "$ROOT/backend-dist/vl-backend" "$APPDIR/resources/backend"
 cp -a "$ROOT/frontend/dist" "$APPDIR/resources/frontend/dist"
 [ -d "$ROOT/resources/ffmpeg" ] && cp -a "$ROOT/resources/ffmpeg" "$APPDIR/resources/ffmpeg"
-[ -d "$ROOT/resources/models" ] && cp -a "$ROOT/resources/models" "$APPDIR/resources/models"
+# M14: pinned CPU-runtime llama.cpp; модели (M13) в пакет не входят.
+cp -a "$ROOT/resources/llama" "$APPDIR/resources/llama"
 cp "$ROOT/resources/THIRD-PARTY-NOTICES.md" "$APPDIR/resources/"
 cp "$ROOT/resources/SOURCE-OFFER.md" "$APPDIR/resources/" 2>/dev/null || true
 
@@ -49,6 +50,7 @@ Architecture: amd64
 Installed-Size: ${INSTALLED_KB}
 Maintainer: VideoLessons Maintainers <maintainers@videolessons.local>
 Depends: libgtk-3-0, libnotify4, libnss3, libxss1, libxtst6, xdg-utils, libatspi2.0-0, libdrm2, libgbm1, libasound2
+Recommends: pulseaudio-utils
 Description: VideoLessons
  Локальная библиотека видеоуроков: офлайн-транскрипция (faster-whisper CPU),
  поиск по произнесённым словам, иерархические теги и пользовательские

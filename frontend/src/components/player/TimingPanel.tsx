@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { KeyboardEvent } from 'react';
 
 import { api } from '../../api/client';
-import type { Annotation, Segment } from '../../api/types';
+import type { Annotation, Segment, SummaryBlock } from '../../api/types';
 import { useResizable } from '../../hooks/useResizable';
 import { useUndoStack } from '../../hooks/useUndoStack';
 import { MIN_ANNOTATION_MS } from '../../lib/constants';
@@ -10,10 +10,22 @@ import { t } from '../../lib/i18n';
 import { useAnnotationsStore, type AnnotationRange } from '../../state/annotationsStore';
 import { useExternalStore } from '../../state/externalStore';
 import { usePlayerStore } from '../../state/playerStore';
+import {
+  DETAIL_LEVEL_MIN,
+  findActiveSummaryBlock,
+  isSummaryLevelReady,
+  summaryLevelBlocks,
+  summaryLevelLabel,
+  summaryLevelLabels,
+  useSummaryStore,
+} from '../../state/summaryStore';
 import { pushError, useUIStore } from '../../state/uiStore';
+import { Spinner } from '../ui/Spinner';
 import { AnnotationRow } from './AnnotationRow';
+import { DetailScale } from './DetailScale';
 import { SegmentRow } from './SegmentRow';
 import type { RowModifiers } from './SegmentRow';
+import { SummaryBlockRow } from './SummaryBlockRow';
 import type { PlayerVideoInfo } from './VideoPlayer';
 import './TimingPanel.css';
 
@@ -94,6 +106,7 @@ export function TimingPanel({ videoId, video = null, className }: TimingPanelPro
   const activeSegmentId = usePlayerStore((state) => state.activeSegmentId);
   const playerLoading = usePlayerStore((state) => state.loading);
   const playerError = usePlayerStore((state) => state.error);
+  const positionMs = usePlayerStore((state) => state.positionMs);
   const seek = usePlayerStore((state) => state.seek);
   const activeAnnotationId = usePlayerStore((state) => {
     if (state.annotations.length === 0) return null;
@@ -110,6 +123,17 @@ export function TimingPanel({ videoId, video = null, className }: TimingPanelPro
   const timingsWidth = useUIStore((state) => state.timingsWidth);
   const toggleTimings = useUIStore((state) => state.toggleTimings);
   const setTimingsWidth = useUIStore((state) => state.setTimingsWidth);
+
+  // M14: уровень детализации и состояние саммари текущего видео.
+  const summaryLevel = useSummaryStore((state) => state.level);
+  const summaryMaxLevel = useSummaryStore((state) => state.maxLevel);
+  const summaryResponse = useSummaryStore((state) => state.response);
+  const summaryLoading = useSummaryStore((state) => state.loading);
+  const summaryGenerating = useSummaryStore((state) => state.generating);
+  const summaryError = useSummaryStore((state) => state.error);
+  const summaryModelMissing = useSummaryStore((state) => state.modelMissing);
+  const summaryEnabled = useSummaryStore((state) => state.enabled);
+  const setSummaryLevel = useSummaryStore((state) => state.setLevel);
 
   const undoStack = useUndoStack();
   const [showAnnotations, setShowAnnotations] = useState(true);
@@ -139,6 +163,35 @@ export function TimingPanel({ videoId, video = null, className }: TimingPanelPro
   );
   const ranges = useMemo(() => selectionToRanges(rows, selectedRows), [rows, selectedRows]);
 
+  // M14 rev2: уровни 1..maxLevel — динамическое смысловое дерево; уровень 0 — сегменты.
+  const summaryMode = summaryLevel > DETAIL_LEVEL_MIN;
+  const summaryBlocks = useMemo(
+    () => (summaryMode ? summaryLevelBlocks(summaryResponse, summaryLevel) : []),
+    [summaryLevel, summaryMode, summaryResponse],
+  );
+  const summaryLabels = useMemo(
+    () => summaryLevelLabels(summaryResponse, summaryMaxLevel),
+    [summaryMaxLevel, summaryResponse],
+  );
+  const activeBlockIndex = useMemo(
+    () => (summaryMode ? findActiveSummaryBlock(summaryBlocks, positionMs) : -1),
+    [positionMs, summaryBlocks, summaryMode],
+  );
+  const activeBlock = activeBlockIndex >= 0 ? summaryBlocks[activeBlockIndex] : null;
+  const activeBlockKey = activeBlock ? activeBlock.node_id : null;
+  // Корневой уровень дерева: один блок = саммари всего видео.
+  const isRootLevel = summaryMode && summaryMaxLevel > 0 && summaryLevel === summaryMaxLevel;
+  const hasSegments = segments.length > 0;
+  const scaleDisabled = videoId === null || !hasSegments || playerLoading;
+
+  useEffect(() => {
+    if (videoId === null) {
+      useSummaryStore.getState().reset();
+      return;
+    }
+    void useSummaryStore.getState().load(videoId);
+  }, [videoId, reloadKey]);
+
   useEffect(() => {
     if (videoId === null) return;
     void useAnnotationsStore.getState().load(videoId);
@@ -147,6 +200,14 @@ export function TimingPanel({ videoId, video = null, className }: TimingPanelPro
   useEffect(() => {
     useAnnotationsStore.getState().setTimingSelection(ranges);
   }, [ranges]);
+
+  // В режиме саммари мультивыбор строк недоступен — сбрасываем его при уходе с уровня 0.
+  useEffect(() => {
+    if (summaryMode) {
+      setSelectedRows([]);
+      anchorIndexRef.current = null;
+    }
+  }, [summaryMode]);
 
   useEffect(
     () => () => {
@@ -160,7 +221,9 @@ export function TimingPanel({ videoId, video = null, className }: TimingPanelPro
     if (!follow || collapsed) return;
     const container = bodyRef.current;
     if (!container) return;
-    const active = container.querySelector('.is-active');
+    const active = summaryMode
+      ? container.querySelector('[data-summary-block].is-active')
+      : container.querySelector('.is-active');
     if (!active) return;
     const element = active as HTMLElement;
     if (typeof element.scrollIntoView !== 'function') return;
@@ -171,7 +234,7 @@ export function TimingPanel({ videoId, video = null, className }: TimingPanelPro
       programmaticScrollRef.current = false;
       scrollTimerRef.current = null;
     }, 150);
-  }, [activeAnnotationId, activeSegmentId, collapsed, follow, showAnnotations]);
+  }, [activeAnnotationId, activeBlockKey, activeSegmentId, collapsed, follow, showAnnotations, summaryMode]);
 
   const pauseFollow = useCallback(() => {
     setFollow(false);
@@ -246,9 +309,47 @@ export function TimingPanel({ videoId, video = null, className }: TimingPanelPro
     [handleToggleSelect],
   );
 
+  // Метки в режиме саммари — read-only: клик/Enter перематывает, правка отключена.
+  const handleAnnotationToggleReadOnly = useCallback(() => undefined, []);
+  const handleEditAnnotationReadOnly = useCallback(() => undefined, []);
+  const handleDeleteAnnotationReadOnly = useCallback(() => undefined, []);
+
+  const handleActivateSummaryBlock = useCallback(() => {
+    setSelectedRows([]);
+    anchorIndexRef.current = null;
+  }, []);
+
   const clearSelection = useCallback(() => {
     setSelectedRows([]);
     anchorIndexRef.current = null;
+  }, []);
+
+  const openSettings = useCallback(() => {
+    useUIStore.getState().setSettingsOpen(true);
+  }, []);
+
+  const handleGenerateSummary = useCallback(() => {
+    // Пока дерево ещё не построено (maxLevel=0), просим сгенерировать саммари целиком.
+    const requested = summaryLevel > DETAIL_LEVEL_MIN && summaryMaxLevel > 0 ? summaryLevel : undefined;
+    void useSummaryStore.getState().generate(requested);
+  }, [summaryLevel, summaryMaxLevel]);
+
+  const handleRetrySummary = useCallback(() => {
+    void useSummaryStore.getState().generate(undefined);
+  }, []);
+
+  const handleRegenerateSummary = useCallback(() => {
+    const requested = summaryLevel > DETAIL_LEVEL_MIN && summaryMaxLevel > 0 ? summaryLevel : undefined;
+    void useSummaryStore.getState().generate(requested, true);
+  }, [summaryLevel, summaryMaxLevel]);
+
+  const scrollToActiveBlock = useCallback(() => {
+    setFollow(true);
+    const container = bodyRef.current;
+    const active = container?.querySelector('[data-summary-block].is-active');
+    if (active && typeof (active as HTMLElement).scrollIntoView === 'function') {
+      (active as HTMLElement).scrollIntoView({ block: 'nearest' });
+    }
   }, []);
 
   const handleCreateBulk = useCallback(async () => {
@@ -339,6 +440,20 @@ export function TimingPanel({ videoId, video = null, className }: TimingPanelPro
         );
       }
       if (status === 'error') {
+        if (video?.error_code === 'model_missing') {
+          return (
+            <div className="vl-timing-panel__state">
+              <p className="vl-timing-panel__state-text">{t('models.noWhisper')}</p>
+              <button
+                type="button"
+                className="primary"
+                onClick={() => useUIStore.getState().setSettingsOpen(true)}
+              >
+                {t('summary.downloadModel')}
+              </button>
+            </div>
+          );
+        }
         return (
           <div className="vl-timing-panel__state">
             <p className="vl-timing-panel__state-text">{video?.error ?? t('toast.error', { message: '' })}</p>
@@ -406,6 +521,155 @@ export function TimingPanel({ videoId, video = null, className }: TimingPanelPro
           return <div key={row.key} />;
         })}
       </div>
+    );
+  };
+
+  /** Состояние режима саммари с опциональным действием (CTA). */
+  const renderSummaryState = (
+    text: string,
+    action?: { label: string; run: () => void; primary?: boolean },
+    hint?: string,
+  ): JSX.Element => (
+    <div className="vl-timing-panel__state vl-timing-panel__state--summary">
+      <p className="vl-timing-panel__state-text">{text}</p>
+      {hint && <p className="vl-timing-panel__state-hint">{hint}</p>}
+      {action && (
+        <button type="button" className={action.primary ? 'primary' : undefined} onClick={action.run}>
+          {action.label}
+        </button>
+      )}
+    </div>
+  );
+
+  const renderSummaryProgress = (): JSX.Element => {
+    const summaryProgress = summaryResponse?.progress ?? null;
+    const percent = summaryProgress ? Math.max(0, Math.min(100, Math.round(summaryProgress.percent))) : 0;
+    const done = summaryProgress?.done ?? 0;
+    const total = summaryProgress?.total ?? 0;
+    const state = summaryResponse?.state;
+    const stage =
+      summaryProgress?.stage ??
+      (state === 'outlining' ? 'outline' : state === 'splitting' ? 'splitting' : state === 'summarizing' ? 'summarizing' : null);
+    let text = t('summary.generating', { stage: t('summary.mapStage'), done, total });
+    if (stage === 'outline') {
+      text = t('summary.generatingOutline');
+    } else if (stage === 'splitting') {
+      text = t('summary.generatingSplitting', { done, total });
+    } else if (stage === 'summarizing') {
+      text = t('summary.generatingSummarizing', { done, total });
+    }
+    return (
+      <div className="vl-timing-panel__summary-progress" role="status" aria-live="polite">
+        <p className="vl-timing-panel__state-text">{text}</p>
+        <div className="vl-timing-panel__progress" aria-hidden="true">
+          <div className="vl-timing-panel__progress-bar" style={{ width: `${percent}%` }} />
+        </div>
+      </div>
+    );
+  };
+
+  /** Блоки уровня дерева и read-only метки между ними (уровни 1..maxLevel). */
+  const renderSummaryRows = (): JSX.Element => {
+    const annotationRows = showAnnotations ? annotations : [];
+    const items: JSX.Element[] = [];
+    let annotationIndex = 0;
+    const pushAnnotation = (annotation: Annotation): void => {
+      items.push(
+        <AnnotationRow
+          key={`annotation:${annotation.id}`}
+          annotation={annotation}
+          active={annotation.id === activeAnnotationId || annotation.id === selectedId}
+          selected={false}
+          onActivate={handleActivateAnnotation}
+          onEdit={handleEditAnnotationReadOnly}
+          onDelete={handleDeleteAnnotationReadOnly}
+          onToggleSelect={handleAnnotationToggleReadOnly}
+        />,
+      );
+    };
+    summaryBlocks.forEach((block: SummaryBlock, index: number) => {
+      while (annotationIndex < annotationRows.length && annotationRows[annotationIndex].start_ms < block.start_ms) {
+        pushAnnotation(annotationRows[annotationIndex]);
+        annotationIndex += 1;
+      }
+      items.push(
+        <SummaryBlockRow
+          key={`block:${block.node_id}`}
+          block={block}
+          active={index === activeBlockIndex}
+          titleFallback={isRootLevel ? t('summary.rootSummary') : null}
+          onActivate={handleActivateSummaryBlock}
+        />,
+      );
+    });
+    while (annotationIndex < annotationRows.length) {
+      pushAnnotation(annotationRows[annotationIndex]);
+      annotationIndex += 1;
+    }
+    return (
+      <div
+        className="vl-timing-panel__rows vl-timing-panel__rows--summary"
+        role="listbox"
+        aria-label={`${t('summary.detail')}: ${summaryLevelLabel(summaryResponse, summaryLevel, summaryMaxLevel)}`}
+      >
+        {items}
+      </div>
+    );
+  };
+
+  const renderSummaryBody = (): JSX.Element => {
+    const levelReady = isSummaryLevelReady(summaryResponse, summaryLevel);
+    const state = summaryResponse?.state ?? 'absent';
+    const progressBanner = summaryGenerating ? renderSummaryProgress() : null;
+
+    if (!summaryEnabled) {
+      return renderSummaryState(t('summary.disabled'), {
+        label: t('settings.title'),
+        run: openSettings,
+      });
+    }
+    if (summaryModelMissing) {
+      return renderSummaryState(t('summary.modelMissing'), {
+        label: t('summary.downloadModel'),
+        run: openSettings,
+        primary: true,
+      });
+    }
+    if (summaryLoading && !summaryResponse) {
+      return (
+        <div className="vl-timing-panel__state">
+          <Spinner />
+        </div>
+      );
+    }
+    if (state === 'error' && !summaryGenerating) {
+      return renderSummaryState(
+        summaryResponse?.detail ?? summaryError ?? t('summary.error'),
+        { label: t('summary.retry'), run: handleRetrySummary },
+      );
+    }
+    if (state === 'stale' && !summaryGenerating) {
+      return renderSummaryState(t('summary.stale'), {
+        label: t('summary.regenerate'),
+        run: handleRegenerateSummary,
+        primary: true,
+      });
+    }
+    if (levelReady) {
+      return (
+        <>
+          {progressBanner}
+          {summaryBlocks.length === 0
+            ? renderSummaryState(t('summary.noBlocks'))
+            : renderSummaryRows()}
+        </>
+      );
+    }
+    if (progressBanner) return progressBanner;
+    return renderSummaryState(
+      t('summary.noBlocks'),
+      { label: t('summary.generate'), run: handleGenerateSummary, primary: true },
+      summaryLevelLabel(summaryResponse, summaryLevel, summaryMaxLevel),
     );
   };
 
@@ -479,6 +743,11 @@ export function TimingPanel({ videoId, video = null, className }: TimingPanelPro
               >
                 {t('timings.follow')}
               </button>
+              {summaryMode && (
+                <button type="button" onClick={scrollToActiveBlock} title={t('summary.currentBlock')}>
+                  {t('summary.currentBlock')}
+                </button>
+              )}
               <button
                 type="button"
                 aria-pressed={showAnnotations}
@@ -508,7 +777,7 @@ export function TimingPanel({ videoId, video = null, className }: TimingPanelPro
                 ↷
               </button>
             </div>
-            {ranges.length > 0 && (
+            {!summaryMode && ranges.length > 0 && (
               <div className="vl-timing-panel__bulk">
                 <button type="button" onClick={() => void handleCreateBulk()}>
                   {t('annotations.createOnSelection')}
@@ -518,14 +787,24 @@ export function TimingPanel({ videoId, video = null, className }: TimingPanelPro
                 </button>
               </div>
             )}
-            <div
-              className="vl-timing-panel__body"
-              ref={bodyRef}
-              onScroll={handleScroll}
-              onWheel={pauseFollow}
-              onTouchMove={pauseFollow}
-            >
-              {renderBody()}
+            <div className="vl-timing-panel__content">
+              <div
+                className="vl-timing-panel__body"
+                ref={bodyRef}
+                onScroll={handleScroll}
+                onWheel={pauseFollow}
+                onTouchMove={pauseFollow}
+              >
+                {summaryMode && rows.length > 0 ? renderSummaryBody() : renderBody()}
+              </div>
+              <DetailScale
+                value={summaryLevel}
+                maxLevel={summaryMaxLevel}
+                labels={summaryLabels}
+                disabled={scaleDisabled}
+                generating={summaryGenerating}
+                onChange={setSummaryLevel}
+              />
             </div>
           </>
         )}

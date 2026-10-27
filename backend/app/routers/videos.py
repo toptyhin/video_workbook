@@ -8,7 +8,7 @@ from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 
 from ..db import connect
 from ..deps import get_db
-from ..services import library_service
+from ..services import file_ops, library_service
 from ..services.queue import QueueError
 from ..services.streaming import RangeNotSatisfiable, iter_file, parse_range
 from ..services.thumbnail import drop_thumbs, ensure_thumb
@@ -137,6 +137,34 @@ def enqueue(payload: dict, request: Request):
         return _error(400, "ids должен содержать числа", "invalid_ids")
     except QueueError as exc:
         return _error(exc.status_code, exc.detail, exc.code)
+    return result
+
+
+@router.post("/videos/transfer")
+def transfer_videos(payload: dict, request: Request, conn: sqlite3.Connection = Depends(get_db)):
+    try:
+        result = file_ops.transfer(
+            conn,
+            request.app.state.config,
+            action=payload.get("action"),
+            ids=payload.get("ids"),
+            destination=payload.get("destination"),
+        )
+    except file_ops.TransferError as exc:
+        return _error(exc.status_code, exc.detail, exc.code)
+    bus = request.app.state.bus
+    for item in result["items"]:
+        if not item["ok"]:
+            continue
+        if result["action"] == "move":
+            bus.publish("video.status", {"video_id": item["id"], "status": "moved"})
+        else:
+            bus.publish(
+                "video.status",
+                {"video_id": item["new_id"] or item["id"], "status": "copied"},
+            )
+    if any(item["ok"] for item in result["items"]):
+        bus.publish("settings.changed", {"keys": ["files.recent_destinations"]})
     return result
 
 
